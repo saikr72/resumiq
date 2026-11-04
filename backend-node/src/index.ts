@@ -104,7 +104,8 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
           0, 0, // Placeholder for semantic/experience
           JSON.stringify(comparison.matched_skills),
           JSON.stringify(comparison.missing_skills),
-          JSON.stringify(aiSuggestions)
+          // A failed LLM call is not a suggestion, so leave the column empty
+          aiSuggestions?.error ? null : JSON.stringify(aiSuggestions)
         ]
       );
     }

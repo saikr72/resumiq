@@ -520,6 +520,13 @@ export default function App() {
                 </div>
               </div>
 
+              {results?.aiSuggestions?.error && (
+                <div role="alert" className="flex items-start space-x-3 border border-amber-800 bg-amber-900/30 rounded-xl p-4 text-sm text-amber-200">
+                  <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                  <span>AI suggestions couldn't be generated for this analysis. The keyword match above is still valid. Please try again later.</span>
+                </div>
+              )}
+
               {/* AI Suggestions Section */}
               {results?.aiSuggestions && !results.aiSuggestions.error && (
                 <div className="space-y-4 border-t border-slate-800 pt-6">
@@ -585,10 +592,17 @@ export default function App() {
 
               <div className="mt-auto border-t border-slate-800 pt-4 text-xs text-slate-500 flex items-center justify-between">
                 <span>Powered by Claude LLM & FastAPI NLP Service</span>
-                <span className="flex items-center space-x-1 text-emerald-400">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  <span>Ready</span>
-                </span>
+                {results?.aiSuggestions?.error ? (
+                  <span className="flex items-center space-x-1 text-amber-400">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    <span>Keyword analysis only</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center space-x-1 text-emerald-400">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    <span>Ready</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
