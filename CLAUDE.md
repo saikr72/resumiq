@@ -13,7 +13,9 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 
 **Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
-**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`. Under Docker, `backend-node/.env` is not used: Compose takes `ANTHROPIC_API_KEY` from the shell or a root `.env` file, and without it AI suggestions fail.
+**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), and `COOKIE_SECURE` (set to `true` when served over HTTPS). Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
+
+**Authentication:** `backend-node/src/auth.ts` handles email/password and Google sign-in. Sessions are random tokens in an `httpOnly` cookie, stored hashed in the `sessions` table. Every `/api` route except `/api/health` and `/api/auth/*` requires a session, and each route must scope its queries to `req.user.id`. Linking Google to an existing password account removes the password and ends that account's sessions, because registration does not verify email ownership.
 
 ### Commands
 
@@ -38,9 +40,9 @@ The only automated tests cover skill matching in `service-python/tests/`. The ba
 ### Working on this repo
 
 - For agents that write in parallel, use a separate git worktree or keep each one in its own service directory.
-- For end-to-end checks, use a disposable database rather than the one in `backend-node/.env`, because the backend seeds a test user on startup. Set `DATABASE_URL` in the environment, which takes priority over `.env`.
+- For end-to-end checks, use a disposable database rather than the one in `backend-node/.env`. Set `DATABASE_URL` in the environment, which takes priority over `.env`.
 - Cross-service changes: the API JSON is a contract between `backend-node/src/index.ts` and `frontend/src/App.tsx`, and the Python response fields are a contract between `service-python/app/main.py` and `backend-node`. Update both sides in the same task.
-- Schema changes go in both `database/schema.sql` and `database/schema_tracker.sql`. There are no migrations, so existing databases also need `ALTER` statements.
+- Schema changes go in both `database/schema.sql` and `database/schema_tracker.sql`, plus a new numbered file in `database/migrations/` for existing databases. Nothing applies migrations automatically; run them with `psql`.
 - Resumes contain personal data. Do not log their text or commit sample resumes from real people.
 
 ### Known issues
@@ -52,7 +54,7 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 
 **Frontend**
 - `index.html` links `/vite.svg`, which does not exist, so the favicon returns 404 under nginx.
-- The API URL is hardcoded to `http://localhost:5000`, including a separate literal in the upload call.
+- The API URL is hardcoded to `http://localhost:5000` in `frontend/src/api.ts`.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
 - The header navigation overflows the page at phone widths (the page is 452px wide at a 375px viewport).
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
@@ -62,7 +64,9 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - `POST /api/applications/:id/interviews` ignores the `status` sent by the form, so new rounds are always `SCHEDULED`.
 - Interview rows created before the timezone fix may hold shifted times. They have not been corrected.
 - Client errors return 500: unsupported or corrupt uploads, missing required fields, and malformed UUIDs.
-- **There is no authentication.** Every route acts as the first row from `SELECT id FROM users LIMIT 1`, which startup seeds as a test user. CORS is open to all origins. Do not deploy this publicly.
+- **Accounts have no password reset or email verification.** Anyone can register with an address they don't own, and a user who forgets a password has no way back in unless they sign in with Google.
+- The Python service is published on host port 8000 with no authentication, so anything that can reach it can bypass login to use the parser. Do not expose it publicly.
+- Rate limits are stored in memory per process, so they reset on restart and aren't shared between instances. They also need `trust proxy` configured if the API is put behind a proxy.
 - Uploads have no size limit or type validation in Multer, and are held in memory. The `file_path` saved to the DB is a placeholder; the file is never stored.
 - `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }` and the upload still returns 201.
 - `semantic_score` and `experience_score` are saved as `0`, `overall_match_score` is just the keyword score, and `resume_analyses.job_id` is never set.
