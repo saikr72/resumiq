@@ -37,7 +37,7 @@ export function sendVerificationEmail(to: string, token: string) {
   return sendEmail(
     to,
     'Verify your email address',
-    'Please confirm your email address for your Resume Intelligence account.',
+    'Please confirm your email address for your resumIQ account.',
     'Verify email',
     `${frontendOrigin()}/#verify-email=${token}`,
     "This link expires in 24 hours. If you didn't create an account, ignore this email and don't click the link."
@@ -48,7 +48,7 @@ export function sendPasswordResetEmail(to: string, token: string) {
   return sendEmail(
     to,
     'Reset your password',
-    'We received a request to reset the password for your Resume Intelligence account.',
+    'We received a request to reset the password for your resumIQ account.',
     'Reset password',
     `${frontendOrigin()}/#reset-password=${token}`,
     "This link expires in 1 hour and signs you out everywhere. If you didn't request it, you can ignore this email."

@@ -36,6 +36,140 @@ app.use('/api/auth', authRouter);
 // before Multer, so rejected uploads are never read into memory.
 app.use('/api', requireAuth, requireVerifiedEmail);
 
+const MAX_JOB_DESCRIPTION_LENGTH = 20000;
+
+function validateJobDescription(value: unknown, required: boolean): string | null {
+  if (value === undefined || value === null || value === '') {
+    return required ? 'Paste a job description to compare against' : null;
+  }
+  if (typeof value !== 'string' || value.length > MAX_JOB_DESCRIPTION_LENGTH) {
+    return `Job description must be ${MAX_JOB_DESCRIPTION_LENGTH} characters or fewer`;
+  }
+  return null;
+}
+
+// Compares a resume with a job description and saves the result
+async function analyzeResume(userId: string, resumeId: string, rawText: string, jobTitle: unknown, jobDescription: string) {
+  const [compareRes, aiSuggestions] = await Promise.all([
+    axios.post(`${PYTHON_SERVICE_URL}/compare-keywords`, { resume_text: rawText, job_text: jobDescription }),
+    generateResumeSuggestions(rawText, jobDescription),
+  ]);
+  const comparison = compareRes.data.comparison;
+
+  const title = typeof jobTitle === 'string' && jobTitle.trim() ? jobTitle.trim().slice(0, 150) : 'Untitled role';
+  const jobRes = await query(
+    'INSERT INTO job_descriptions (user_id, company_name, job_title, raw_text) VALUES ($1, $2, $3, $4) RETURNING id',
+    [userId, '', title, jobDescription]
+  );
+
+  await query(
+    'INSERT INTO resume_analyses (resume_id, job_id, overall_match_score, keyword_score, semantic_score, experience_score, matched_skills, missing_skills, improvement_suggestions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+    [
+      resumeId,
+      jobRes.rows[0].id,
+      comparison.match_percentage,
+      comparison.match_percentage,
+      0, 0, // Placeholder for semantic/experience
+      JSON.stringify(comparison.matched_skills),
+      JSON.stringify(comparison.missing_skills),
+      // A failed LLM call is not a suggestion, so leave the column empty
+      aiSuggestions?.error ? null : JSON.stringify(aiSuggestions),
+    ]
+  );
+
+  return { comparison, aiSuggestions };
+}
+
+// GET /api/resumes - List the user's resumes with their latest match score
+app.get('/api/resumes', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT r.id, r.title, r.file_type, r.created_at, latest.overall_match_score AS latest_score
+       FROM resumes r
+       LEFT JOIN LATERAL (
+         SELECT overall_match_score FROM resume_analyses ra
+         WHERE ra.resume_id = r.id
+         ORDER BY ra.created_at DESC
+         LIMIT 1
+       ) latest ON true
+       WHERE r.user_id = $1
+       ORDER BY r.created_at DESC`,
+      [req.user!.id]
+    );
+    res.json(result.rows.map((row) => ({ ...row, latest_score: row.latest_score === null ? null : Number(row.latest_score) })));
+  } catch (error: any) {
+    console.error('Get Resumes Error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch resumes' });
+  }
+});
+
+// DELETE /api/resumes/:id - Delete a resume, its analyses, and the job descriptions they used
+app.delete('/api/resumes/:id', async (req, res) => {
+  try {
+    const result = await query(
+      `WITH removed_jobs AS (
+         DELETE FROM job_descriptions
+         WHERE user_id = $2 AND id IN (
+           SELECT ra.job_id FROM resume_analyses ra
+           JOIN resumes r ON r.id = ra.resume_id
+           WHERE ra.resume_id = $1 AND r.user_id = $2
+         )
+       )
+       DELETE FROM resumes WHERE id = $1 AND user_id = $2 RETURNING id`,
+      [req.params.id, req.user!.id]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Delete Resume Error:', error.message);
+    res.status(500).json({ error: 'Failed to delete resume' });
+  }
+});
+
+// POST /api/resumes/:id/analyses - Compare a saved resume with a job description
+app.post('/api/resumes/:id/analyses', async (req, res) => {
+  try {
+    const { jobTitle, jobDescription } = req.body ?? {};
+    const jobError = validateJobDescription(jobDescription, true);
+    if (jobError) {
+      return res.status(400).json({ error: jobError });
+    }
+
+    const resume = await query('SELECT raw_text FROM resumes WHERE id = $1 AND user_id = $2', [req.params.id, req.user!.id]);
+    if (resume.rowCount === 0) {
+      return res.status(404).json({ error: 'Resume not found' });
+    }
+
+    res.status(201).json(await analyzeResume(req.user!.id, req.params.id, resume.rows[0].raw_text, jobTitle, jobDescription));
+  } catch (error: any) {
+    console.error('Analyze Resume Error:', error.response?.data || error.message);
+    res.status(500).json({ error: 'Failed to analyze resume' });
+  }
+});
+
+// GET /api/analyses - List the user's recent analyses
+app.get('/api/analyses', async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT ra.id, ra.resume_id, r.title AS resume_title, jd.job_title, ra.overall_match_score,
+              ra.matched_skills, ra.missing_skills, ra.improvement_suggestions, ra.created_at
+       FROM resume_analyses ra
+       JOIN resumes r ON r.id = ra.resume_id
+       LEFT JOIN job_descriptions jd ON jd.id = ra.job_id
+       WHERE r.user_id = $1
+       ORDER BY ra.created_at DESC
+       LIMIT 50`,
+      [req.user!.id]
+    );
+    res.json(result.rows.map((row) => ({ ...row, overall_match_score: Number(row.overall_match_score) })));
+  } catch (error: any) {
+    console.error('Get Analyses Error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch analyses' });
+  }
+});
+
 // Resume upload and parse endpoint
 app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
   try {
@@ -43,7 +177,11 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       return res.status(400).json({ error: 'No resume file uploaded' });
     }
 
-    const { jobDescription } = req.body;
+    const { jobTitle, jobDescription } = req.body;
+    const jobError = validateJobDescription(jobDescription, false);
+    if (jobError) {
+      return res.status(400).json({ error: jobError });
+    }
 
     // 1. Forward file to Python service for parsing
     const formData = new FormData();
@@ -70,37 +208,12 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       [resumeId, JSON.stringify(parsedData.extracted_skills)]
     );
 
-    // 4. If job description provided, perform initial keyword comparison AND LLM suggestions
+    // 4. If a job description was provided, compare it and get LLM suggestions
     let comparison = null;
     let aiSuggestions = null;
 
     if (jobDescription) {
-      // Run comparison and LLM suggestions in parallel
-      const [compareRes, suggestions] = await Promise.all([
-        axios.post(`${PYTHON_SERVICE_URL}/compare-keywords`, {
-          resume_text: parsedData.raw_text,
-          job_text: jobDescription
-        }),
-        generateResumeSuggestions(parsedData.raw_text, jobDescription)
-      ]);
-
-      comparison = compareRes.data.comparison;
-      aiSuggestions = suggestions;
-
-      // Save analysis to DB
-      await query(
-        'INSERT INTO resume_analyses (resume_id, overall_match_score, keyword_score, semantic_score, experience_score, matched_skills, missing_skills, improvement_suggestions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [
-          resumeId,
-          comparison.match_percentage,
-          comparison.match_percentage,
-          0, 0, // Placeholder for semantic/experience
-          JSON.stringify(comparison.matched_skills),
-          JSON.stringify(comparison.missing_skills),
-          // A failed LLM call is not a suggestion, so leave the column empty
-          aiSuggestions?.error ? null : JSON.stringify(aiSuggestions)
-        ]
-      );
+      ({ comparison, aiSuggestions } = await analyzeResume(userId, resumeId, parsedData.raw_text, jobTitle, jobDescription));
     }
 
     res.status(201).json({
