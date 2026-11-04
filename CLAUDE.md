@@ -34,7 +34,8 @@ There is **no automated test suite** and no linter configured. Report what was a
 
 ### Working on this repo
 
-- Git is initialized but **has no commits yet**, so nothing can be reverted with git and worktree isolation is unavailable. Until a first commit exists, run writing agents one at a time, or in parallel only when each stays in its own service directory.
+- For agents that write in parallel, use a separate git worktree or keep each one in its own service directory.
+- For end-to-end checks, use a disposable database rather than the one in `backend-node/.env`, because the backend seeds a test user on startup. Set `DATABASE_URL` in the environment, which takes priority over `.env`.
 - Cross-service changes: the API JSON is a contract between `backend-node/src/index.ts` and `frontend/src/App.tsx`, and the Python response fields are a contract between `service-python/app/main.py` and `backend-node`. Update both sides in the same task.
 - Schema changes go in both `database/schema.sql` and `database/schema_tracker.sql`. There are no migrations, so existing databases also need `ALTER` statements.
 - Resumes contain personal data. Do not log their text or commit sample resumes from real people.
@@ -49,12 +50,18 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 **Frontend**
 - **The Docker frontend is unreachable as configured.** Its image serves nginx on port 80, but compose maps `3000:3000`.
 - The API URL is hardcoded to `http://localhost:5000`, including a separate literal in the upload call.
-- Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint.
+- Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
+- **Kanban columns overlap at desktop widths.** Six `min-w-[240px]` columns in `xl:grid-cols-6` overflow their tracks, covering the count badges and clipping the last column.
+- **AI failures are invisible.** When `aiSuggestions` contains `error`, the section is hidden and the panel still shows "Ready".
+- Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
+- The upload screen says "Maximum file size: 10MB", but nothing enforces it.
 
 **Backend**
+- **Interview times are stored wrong outside UTC.** `datetime-local` values are sent with no offset and Postgres reads them in its session timezone (UTC in Docker), so 14:30 entered in IST displays as 8:00 PM.
+- Client errors return 500: unsupported or corrupt uploads, missing required fields, and malformed UUIDs.
 - **There is no authentication.** Every route acts as the first row from `SELECT id FROM users LIMIT 1`, which startup seeds as a test user. CORS is open to all origins. Do not deploy this publicly.
 - Uploads have no size limit or type validation in Multer, and are held in memory. The `file_path` saved to the DB is a placeholder; the file is never stored.
-- `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. Check that the model is still available. On failure, it returns `{ error }`, which then gets saved as `improvement_suggestions`.
+- `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }`, the upload still returns 201, and the error gets saved as `improvement_suggestions`.
 - `semantic_score` and `experience_score` are saved as `0`, `overall_match_score` is just the keyword score, and `resume_analyses.job_id` is never set.
 
 **Python service**
