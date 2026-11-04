@@ -2,12 +2,15 @@ import crypto from 'crypto';
 import { NextFunction, Request, Response, Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { OAuth2Client } from 'google-auth-library';
+import { PoolClient } from 'pg';
 import pool, { query } from './db';
+import { sendPasswordResetEmail, sendVerificationEmail } from './email';
 
 export interface AuthUser {
   id: string;
   email: string;
   fullName: string | null;
+  emailVerified: boolean;
 }
 
 declare global {
@@ -29,6 +32,13 @@ const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 200; // Bounds the work done per hashing request
 
 const INVALID_CREDENTIALS = 'Incorrect email or password';
+
+const VERIFY_EMAIL = 'verify_email';
+const RESET_PASSWORD = 'reset_password';
+const VERIFY_TOKEN_MS = 24 * 60 * 60 * 1000;
+const RESET_TOKEN_MS = 60 * 60 * 1000;
+const EMAIL_THROTTLE_SECONDS = 60;
+const INVALID_LINK = 'This link is invalid or has expired. Please request a new one.';
 
 function scrypt(password: string, salt: Buffer, N: number, r: number, p: number, keylen: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -78,8 +88,48 @@ async function startSession(res: Response, userId: string): Promise<void> {
   res.cookie(SESSION_COOKIE, token, { ...cookieOptions(), maxAge: SESSION_MS });
 }
 
-function toAuthUser(row: { id: string; email: string; full_name: string | null }): AuthUser {
-  return { id: row.id, email: row.email, fullName: row.full_name };
+function toAuthUser(row: { id: string; email: string; full_name: string | null; email_verified_at: Date | null }): AuthUser {
+  return { id: row.id, email: row.email, fullName: row.full_name, emailVerified: row.email_verified_at !== null };
+}
+
+// Replaces any earlier link for this purpose, so only the newest one works
+async function issueEmailToken(userId: string, purpose: string, lifetimeMs: number): Promise<string> {
+  const token = crypto.randomBytes(32).toString('base64url');
+  await query('DELETE FROM email_tokens WHERE user_id = $1 AND purpose = $2', [userId, purpose]);
+  await query('INSERT INTO email_tokens (user_id, purpose, token_hash, expires_at) VALUES ($1, $2, $3, $4)', [
+    userId,
+    purpose,
+    hashToken(token),
+    new Date(Date.now() + lifetimeMs),
+  ]);
+  return token;
+}
+
+// Limits how often one mailbox can be emailed, whoever is making the requests
+async function wasEmailedRecently(userId: string, purpose: string): Promise<boolean> {
+  const result = await query(
+    `SELECT 1 FROM email_tokens
+     WHERE user_id = $1 AND purpose = $2 AND created_at > CURRENT_TIMESTAMP - make_interval(secs => $3)`,
+    [userId, purpose, EMAIL_THROTTLE_SECONDS]
+  );
+  return (result.rowCount ?? 0) > 0;
+}
+
+async function sendVerification(userId: string, email: string): Promise<void> {
+  await sendVerificationEmail(email, await issueEmailToken(userId, VERIFY_EMAIL, VERIFY_TOKEN_MS));
+}
+
+async function sendPasswordReset(email: string): Promise<void> {
+  const result = await query('SELECT id FROM users WHERE email = $1', [email]);
+  const userId = result.rows[0]?.id;
+  if (!userId || (await wasEmailedRecently(userId, RESET_PASSWORD))) return;
+  await sendPasswordResetEmail(email, await issueEmailToken(userId, RESET_PASSWORD, RESET_TOKEN_MS));
+}
+
+function validatePassword(password: unknown): string | null {
+  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH
+    ? null
+    : `Password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters`;
 }
 
 async function getSessionUser(req: Request): Promise<AuthUser | null> {
@@ -87,7 +137,7 @@ async function getSessionUser(req: Request): Promise<AuthUser | null> {
   if (typeof token !== 'string' || !token) return null;
 
   const result = await query(
-    `SELECT u.id, u.email, u.full_name
+    `SELECT u.id, u.email, u.full_name, u.email_verified_at
      FROM sessions s
      JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > CURRENT_TIMESTAMP`,
@@ -108,6 +158,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     console.error('Auth Error:', error.message);
     res.status(500).json({ error: 'Failed to check authentication' });
   }
+}
+
+export function requireVerifiedEmail(req: Request, res: Response, next: NextFunction) {
+  if (!req.user?.emailVerified) {
+    return res.status(403).json({ error: 'Please verify your email address', code: 'EMAIL_NOT_VERIFIED' });
+  }
+  next();
 }
 
 function normalizeEmail(value: unknown): string | null {
@@ -131,6 +188,14 @@ const signInLimiter = rateLimit({
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: limitMessage,
+});
+
+const emailLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
   message: limitMessage,
@@ -161,8 +226,9 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: 'Enter a valid email address' });
     }
-    if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
-      return res.status(400).json({ error: `Password must be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters` });
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
     }
     if (name && name.length > 100) {
       return res.status(400).json({ error: 'Name must be 100 characters or fewer' });
@@ -171,7 +237,7 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
     const result = await query(
       `INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3)
        ON CONFLICT (email) DO NOTHING
-       RETURNING id, email, full_name`,
+       RETURNING id, email, full_name, email_verified_at`,
       [email, await hashPassword(password), name]
     );
     if (result.rowCount === 0) {
@@ -180,6 +246,9 @@ authRouter.post('/register', registerLimiter, async (req, res) => {
 
     await startSession(res, result.rows[0].id);
     res.status(201).json({ user: toAuthUser(result.rows[0]) });
+
+    // Sent after responding, because a slow mail server shouldn't delay sign-up
+    sendVerification(result.rows[0].id, email).catch((error) => console.error('Verification Email Error:', error.message));
   } catch (error: any) {
     console.error('Register Error:', error.message);
     res.status(500).json({ error: 'Failed to create account' });
@@ -195,7 +264,7 @@ authRouter.post('/login', signInLimiter, async (req, res) => {
       return res.status(401).json({ error: INVALID_CREDENTIALS });
     }
 
-    const result = await query('SELECT id, email, full_name, password_hash FROM users WHERE email = $1', [email]);
+    const result = await query('SELECT id, email, full_name, email_verified_at, password_hash FROM users WHERE email = $1', [email]);
     const row = result.rows[0];
 
     if (!row?.password_hash) {
@@ -218,21 +287,21 @@ authRouter.post('/login', signInLimiter, async (req, res) => {
 /**
  * Finds or creates the user for a verified Google identity.
  *
- * Registration does not verify email ownership, so a password account with this
- * email may have been created by someone else ahead of the real owner. Google
- * has verified the owner, so linking removes the password and ends existing
- * sessions, which locks out anyone who pre-registered the address.
+ * An unverified password account with this email may have been created by
+ * someone other than the real owner. Google has verified the owner, so linking
+ * removes that password and ends its sessions. An account whose email was
+ * already verified keeps both, because its owner has proved control of the email.
  */
 async function resolveGoogleUser(googleId: string, email: string, name: string | null): Promise<AuthUser | 'conflict'> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const byGoogle = await client.query('SELECT id, email, full_name FROM users WHERE google_id = $1', [googleId]);
+    const byGoogle = await client.query('SELECT id, email, full_name, email_verified_at FROM users WHERE google_id = $1', [googleId]);
     let row = byGoogle.rows[0];
 
     if (!row) {
-      const byEmail = await client.query('SELECT id, google_id FROM users WHERE email = $1 FOR UPDATE', [email]);
+      const byEmail = await client.query('SELECT id, google_id, email_verified_at FROM users WHERE email = $1 FOR UPDATE', [email]);
       const existing = byEmail.rows[0];
 
       if (existing?.google_id) {
@@ -241,18 +310,27 @@ async function resolveGoogleUser(googleId: string, email: string, name: string |
       }
 
       if (existing) {
+        const wasVerified = existing.email_verified_at !== null;
         const linked = await client.query(
           `UPDATE users
-           SET google_id = $1, password_hash = NULL, full_name = COALESCE(full_name, $2), updated_at = CURRENT_TIMESTAMP
+           SET google_id = $1,
+               password_hash = CASE WHEN $4 THEN password_hash ELSE NULL END,
+               email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP),
+               full_name = COALESCE(full_name, $2),
+               updated_at = CURRENT_TIMESTAMP
            WHERE id = $3
-           RETURNING id, email, full_name`,
-          [googleId, name, existing.id]
+           RETURNING id, email, full_name, email_verified_at`,
+          [googleId, name, existing.id, wasVerified]
         );
-        await client.query('DELETE FROM sessions WHERE user_id = $1', [existing.id]);
+        if (!wasVerified) {
+          await client.query('DELETE FROM sessions WHERE user_id = $1', [existing.id]);
+        }
         row = linked.rows[0];
       } else {
         const created = await client.query(
-          'INSERT INTO users (email, google_id, full_name) VALUES ($1, $2, $3) RETURNING id, email, full_name',
+          `INSERT INTO users (email, google_id, full_name, email_verified_at)
+           VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+           RETURNING id, email, full_name, email_verified_at`,
           [email, googleId, name]
         );
         row = created.rows[0];
@@ -303,6 +381,120 @@ authRouter.post('/google', signInLimiter, async (req, res) => {
   } catch (error: any) {
     console.error('Google Sign-In Error:', error.message);
     res.status(500).json({ error: 'Failed to sign in with Google' });
+  }
+});
+
+authRouter.post('/resend-verification', emailLimiter, requireAuth, async (req, res) => {
+  try {
+    const user = req.user!;
+    if (user.emailVerified) {
+      return res.json({ success: true });
+    }
+    if (await wasEmailedRecently(user.id, VERIFY_EMAIL)) {
+      return res.status(429).json({ error: 'Please wait a minute before requesting another email' });
+    }
+    await sendVerification(user.id, user.email);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Resend Verification Error:', error.message);
+    res.status(500).json({ error: 'Failed to send verification email' });
+  }
+});
+
+// A POST, so mail scanners that open links can't use up the token
+authRouter.post('/verify-email', signInLimiter, async (req, res) => {
+  const { token } = req.body ?? {};
+  if (typeof token !== 'string' || !token) {
+    return res.status(400).json({ error: INVALID_LINK });
+  }
+
+  let client: PoolClient | undefined;
+  try {
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const used = await client.query(
+      `DELETE FROM email_tokens
+       WHERE token_hash = $1 AND purpose = $2 AND expires_at > CURRENT_TIMESTAMP
+       RETURNING user_id`,
+      [hashToken(token), VERIFY_EMAIL]
+    );
+    if (used.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: INVALID_LINK });
+    }
+    await client.query(
+      `UPDATE users
+       SET email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [used.rows[0].user_id]
+    );
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (error: any) {
+    await client?.query('ROLLBACK');
+    console.error('Verify Email Error:', error.message);
+    res.status(500).json({ error: 'Failed to verify email' });
+  } finally {
+    client?.release();
+  }
+});
+
+// Responds the same way, and before doing any work, so it can't reveal which emails have accounts
+authRouter.post('/forgot-password', emailLimiter, (req, res) => {
+  const email = normalizeEmail(req.body?.email);
+  if (!email) {
+    return res.status(400).json({ error: 'Enter a valid email address' });
+  }
+  res.json({ success: true });
+  sendPasswordReset(email).catch((error) => console.error('Password Reset Email Error:', error.message));
+});
+
+authRouter.post('/reset-password', signInLimiter, async (req, res) => {
+  const { token, password } = req.body ?? {};
+  if (typeof token !== 'string' || !token) {
+    return res.status(400).json({ error: INVALID_LINK });
+  }
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
+  }
+
+  let client: PoolClient | undefined;
+  try {
+    const passwordHash = await hashPassword(password);
+    client = await pool.connect();
+    await client.query('BEGIN');
+    const used = await client.query(
+      `DELETE FROM email_tokens
+       WHERE token_hash = $1 AND purpose = $2 AND expires_at > CURRENT_TIMESTAMP
+       RETURNING user_id`,
+      [hashToken(token), RESET_PASSWORD]
+    );
+    if (used.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: INVALID_LINK });
+    }
+
+    const userId = used.rows[0].user_id;
+    // The link proves control of the mailbox, which also verifies the email
+    await client.query(
+      `UPDATE users
+       SET password_hash = $1, email_verified_at = COALESCE(email_verified_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2`,
+      [passwordHash, userId]
+    );
+    await client.query('DELETE FROM sessions WHERE user_id = $1', [userId]);
+    await client.query('DELETE FROM email_tokens WHERE user_id = $1', [userId]);
+    await client.query('COMMIT');
+
+    res.clearCookie(SESSION_COOKIE, cookieOptions());
+    res.json({ success: true });
+  } catch (error: any) {
+    await client?.query('ROLLBACK');
+    console.error('Reset Password Error:', error.message);
+    res.status(500).json({ error: 'Failed to reset password' });
+  } finally {
+    client?.release();
   }
 });
 

@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import axios from 'axios';
 import FormData from 'form-data';
-import { authRouter, requireAuth } from './auth';
+import { authRouter, requireAuth, requireVerifiedEmail } from './auth';
 import { query } from './db';
 import { generateResumeSuggestions } from './llm';
 
@@ -32,9 +32,9 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/auth', authRouter);
 
-// Everything below requires a signed-in user. This runs before Multer, so
-// anonymous uploads are rejected without being read into memory.
-app.use('/api', requireAuth);
+// Everything below requires a signed-in user with a verified email. This runs
+// before Multer, so rejected uploads are never read into memory.
+app.use('/api', requireAuth, requireVerifiedEmail);
 
 // Resume upload and parse endpoint
 app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
