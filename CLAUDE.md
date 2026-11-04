@@ -11,6 +11,8 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 | `service-python/` | FastAPI, pdfplumber, python-docx | 8000 | `parsing-nlp` |
 | `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5434 on the host, 5432 between containers | `database-schema` |
 
+**Frontend:** `frontend/src/App.tsx` is the workspace shell with hash routing, and each screen is in `src/pages/`. The visual design comes from `htmls/`, and `src/workspace.css` is its stylesheet plus additions at the end.
+
 **Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
 **Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (set to `true` when served over HTTPS), `NODE_ENV`, and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
@@ -41,7 +43,7 @@ The only automated tests cover skill matching in `service-python/tests/`. The ba
 
 - For agents that write in parallel, use a separate git worktree or keep each one in its own service directory.
 - For end-to-end checks, use a disposable database rather than the one in `backend-node/.env`. Set `DATABASE_URL` in the environment, which takes priority over `.env`.
-- Cross-service changes: the API JSON is a contract between `backend-node/src/index.ts` and `frontend/src/App.tsx`, and the Python response fields are a contract between `service-python/app/main.py` and `backend-node`. Update both sides in the same task.
+- Cross-service changes: the API JSON is a contract between `backend-node/src/index.ts` and `frontend/src/pages/`, and the Python response fields are a contract between `service-python/app/main.py` and `backend-node`. Update both sides in the same task.
 - Schema changes go in both `database/schema.sql` and `database/schema_tracker.sql`, plus a new numbered file in `database/migrations/` for existing databases. Nothing applies migrations automatically; run them with `psql`.
 - Resumes contain personal data. Do not log their text or commit sample resumes from real people.
 
@@ -56,9 +58,10 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - `index.html` links `/vite.svg`, which does not exist, so the favicon returns 404 under nginx.
 - The API URL is hardcoded to `http://localhost:5000` in `frontend/src/api.ts`.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
-- The header navigation overflows the page at phone widths (the page is 452px wide at a 375px viewport).
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
-- The upload screen says "Maximum file size: 10MB", but nothing enforces it.
+- The 10 MB upload limit is only enforced in the browser, not by the API.
+- The Resume Builder has no backend: it holds a brief in the browser and says so. "Explore Pro" is a placeholder.
+- Scores are skill keyword matches only. The UI must not present them as ATS, semantic, or experience scores, and must not show sample data from `htmls/`.
 
 **Backend**
 - `POST /api/applications/:id/interviews` ignores the `status` sent by the form, so new rounds are always `SCHEDULED`.
@@ -70,7 +73,7 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - Rate limits are stored in memory per process, so they reset on restart and aren't shared between instances. They also need `trust proxy` configured if the API is put behind a proxy.
 - Uploads have no size limit or type validation in Multer, and are held in memory. The `file_path` saved to the DB is a placeholder; the file is never stored.
 - `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }` and the upload still returns 201.
-- `semantic_score` and `experience_score` are saved as `0`, `overall_match_score` is just the keyword score, and `resume_analyses.job_id` is never set.
+- `semantic_score` and `experience_score` are saved as `0`, and `overall_match_score` is just the keyword score.
 
 **Python service**
 - Skill matching can still misfire on everyday words: `Express` matches "express interest", and a capitalized `Go` matches sentences like "Go live".
