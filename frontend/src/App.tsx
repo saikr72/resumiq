@@ -205,7 +205,11 @@ export default function App() {
       const response = await fetch(`${API_BASE}/applications/${selectedAppId}/interviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newInterview),
+        // datetime-local has no offset, so convert while the browser's timezone is known
+        body: JSON.stringify({
+          ...newInterview,
+          scheduledAt: new Date(newInterview.scheduledAt).toISOString(),
+        }),
       });
       if (!response.ok) throw new Error('Failed to add');
       await fetchInterviews(selectedAppId);
