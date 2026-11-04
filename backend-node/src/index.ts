@@ -4,7 +4,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import axios from 'axios';
+import rateLimit from 'express-rate-limit';
 import FormData from 'form-data';
+import helmet from 'helmet';
 import { authRouter, requireAuth, requireVerifiedEmail } from './auth';
 import { query } from './db';
 import { generateResumeSuggestions } from './llm';
@@ -15,12 +17,64 @@ const PORT = process.env.PORT || 5000;
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
 
 // Credentialed requests need an exact origin, never a wildcard
+// Set to the number of proxies in front of the API, so rate limits see real client addresses
+if (process.env.TRUST_PROXY) {
+  app.set('trust proxy', Number(process.env.TRUST_PROXY));
+}
+
+// The frontend is on another origin, so it must be allowed to read API responses
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000', credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_TITLE_LENGTH = 150;
+const INVALID_FILE_TYPE = 'INVALID_FILE_TYPE';
+
 // Configure Multer for file uploads (memory storage)
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 5, fieldSize: 100 * 1024 },
+  fileFilter: (req, file, callback) => {
+    if (/\.(pdf|docx)$/i.test(file.originalname)) {
+      callback(null, true);
+    } else {
+      callback(new Error(INVALID_FILE_TYPE));
+    }
+  },
+});
+
+function receiveResume(req: express.Request, res: express.Response, next: express.NextFunction) {
+  upload.single('resume')(req, res, (error: unknown) => {
+    if (!error) return next();
+    if (error instanceof multer.MulterError) {
+      return error.code === 'LIMIT_FILE_SIZE'
+        ? res.status(413).json({ error: 'File exceeds the 10 MB upload limit' })
+        : res.status(400).json({ error: 'Invalid upload' });
+    }
+    if (error instanceof Error && error.message === INVALID_FILE_TYPE) {
+      return res.status(400).json({ error: 'Please upload a PDF or DOCX file' });
+    }
+    next(error);
+  });
+}
+
+// A file's name is only a claim, so check its first bytes as well (a DOCX is a ZIP archive)
+function hasExpectedContent(file: Express.Multer.File): boolean {
+  const signature = /\.pdf$/i.test(file.originalname) ? '%PDF-' : 'PK';
+  return file.buffer.subarray(0, signature.length).toString('latin1') === signature;
+}
+
+// Each analysis can call the Claude API, which costs money, so limit how many one account can run
+const analysisLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 30,
+  keyGenerator: (req) => req.user!.id,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'You have reached the hourly analysis limit. Please try again later.' },
+});
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -129,7 +183,7 @@ app.delete('/api/resumes/:id', async (req, res) => {
 });
 
 // POST /api/resumes/:id/analyses - Compare a saved resume with a job description
-app.post('/api/resumes/:id/analyses', async (req, res) => {
+app.post('/api/resumes/:id/analyses', analysisLimiter, async (req, res) => {
   try {
     const { jobTitle, jobDescription } = req.body ?? {};
     const jobError = validateJobDescription(jobDescription, true);
@@ -171,7 +225,7 @@ app.get('/api/analyses', async (req, res) => {
 });
 
 // Resume upload and parse endpoint
-app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
+app.post('/api/resumes/upload', analysisLimiter, receiveResume, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No resume file uploaded' });
@@ -183,22 +237,35 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
       return res.status(400).json({ error: jobError });
     }
 
+    if (!hasExpectedContent(req.file)) {
+      return res.status(400).json({ error: 'This file is not a valid PDF or DOCX document' });
+    }
+
     // 1. Forward file to Python service for parsing
     const formData = new FormData();
     formData.append('file', req.file.buffer, req.file.originalname);
 
     const pythonRes = await axios.post(`${PYTHON_SERVICE_URL}/parse`, formData, {
       headers: formData.getHeaders(),
+      // Lets an unreadable file be reported to the user below, rather than as a server failure
+      validateStatus: (status) => status < 500,
     });
+    if (pythonRes.status !== 200) {
+      return res.status(400).json({ error: pythonRes.data?.detail || 'We could not read this file' });
+    }
 
     const parsedData = pythonRes.data;
 
     const userId = req.user!.id;
+    // A shortened name keeps its extension, which the file type is taken from
+    const { originalname } = req.file;
+    const extension = originalname.slice(originalname.lastIndexOf('.'));
+    const title = originalname.length <= MAX_TITLE_LENGTH ? originalname : originalname.slice(0, MAX_TITLE_LENGTH - extension.length) + extension;
 
     // 2. Save resume to DB
     const resumeInsertRes = await query(
       'INSERT INTO resumes (user_id, title, file_path, file_type, raw_text) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [userId, req.file.originalname, 'uploads/' + req.file.originalname, req.file.originalname.split('.').pop(), parsedData.raw_text]
+      [userId, title, 'uploads/' + title, title.split('.').pop()!.toLowerCase(), parsedData.raw_text]
     );
     const resumeId = resumeInsertRes.rows[0].id;
 

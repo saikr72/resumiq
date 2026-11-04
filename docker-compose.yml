@@ -6,10 +6,10 @@ services:
     container_name: resume_intel_db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your shell or a root .env file}
       POSTGRES_DB: resume_intelligence
     ports:
-      - "5434:5432"
+      - "127.0.0.1:5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
@@ -28,12 +28,13 @@ services:
       - "5000:5000"
     environment:
       PORT: 5000
-      DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/resume_intelligence
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/resume_intelligence
       PYTHON_SERVICE_URL: http://service-python:8000
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
       NODE_ENV: ${NODE_ENV:-development}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -51,15 +52,20 @@ services:
     build:
       context: ./service-python
     container_name: resume_intel_python
-    ports:
-      - "8000:8000"
+    # Internal only: the backend reaches it over the Compose network, and it has no login of its own
+    expose:
+      - "8000"
     environment:
       PORT: 8000
 
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
     container_name: resume_intel_frontend
+    environment:
+      API_ORIGIN: ${API_ORIGIN:-http://localhost:5000}
     ports:
       - "3000:80"
     depends_on:

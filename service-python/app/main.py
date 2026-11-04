@@ -23,11 +23,19 @@ async def parse_document(file: UploadFile = File(...)):
     content = await file.read()
 
     if filename.endswith(".pdf"):
-        raw_text = extract_text_from_pdf(content)
-    elif filename.endswith(".docx") or filename.endswith(".doc"):
-        raw_text = extract_text_from_docx(content)
+        extract_text = extract_text_from_pdf
+    elif filename.endswith(".docx"):
+        extract_text = extract_text_from_docx
     else:
         raise HTTPException(status_code=400, detail="Unsupported file format. Please upload PDF or DOCX.")
+
+    try:
+        raw_text = extract_text(content)
+    except Exception:
+        raise HTTPException(status_code=422, detail="We could not read this file. It may be damaged or password protected.")
+
+    if not raw_text.strip():
+        raise HTTPException(status_code=422, detail="We could not find any text in this file. Scanned documents are not supported yet.")
 
     skills = extract_skills(raw_text)
 
