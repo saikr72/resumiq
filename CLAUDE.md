@@ -26,11 +26,14 @@ cd frontend && npm run build
 
 # Python syntax check
 cd service-python && .venv/bin/python -m compileall -q app
+
+# Python tests
+cd service-python && .venv/bin/python -m unittest discover -s tests
 ```
 
 Dev servers: `npm run dev` in `backend-node/` and `frontend/`, and `.venv/bin/python -m uvicorn app.main:app --port 8000` in `service-python/`. To rebuild the venv, use the Python version from `service-python/Dockerfile`: `uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requirements.txt`.
 
-There is **no automated test suite** and no linter configured. Report what was actually run rather than implying coverage.
+The only automated tests cover skill matching in `service-python/tests/`. The backend and frontend have none, and no linter is configured. Report what was actually run rather than implying coverage.
 
 ### Working on this repo
 
@@ -51,21 +54,21 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - **The Docker frontend is unreachable as configured.** Its image serves nginx on port 80, but compose maps `3000:3000`.
 - The API URL is hardcoded to `http://localhost:5000`, including a separate literal in the upload call.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
-- **Kanban columns overlap at desktop widths.** Six `min-w-[240px]` columns in `xl:grid-cols-6` overflow their tracks, covering the count badges and clipping the last column.
-- **AI failures are invisible.** When `aiSuggestions` contains `error`, the section is hidden and the panel still shows "Ready".
+- The header navigation overflows the page at phone widths (the page is 452px wide at a 375px viewport).
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
 - The upload screen says "Maximum file size: 10MB", but nothing enforces it.
 
 **Backend**
-- **Interview times are stored wrong outside UTC.** `datetime-local` values are sent with no offset and Postgres reads them in its session timezone (UTC in Docker), so 14:30 entered in IST displays as 8:00 PM.
+- `POST /api/applications/:id/interviews` ignores the `status` sent by the form, so new rounds are always `SCHEDULED`.
+- Interview rows created before the timezone fix may hold shifted times. They have not been corrected.
 - Client errors return 500: unsupported or corrupt uploads, missing required fields, and malformed UUIDs.
 - **There is no authentication.** Every route acts as the first row from `SELECT id FROM users LIMIT 1`, which startup seeds as a test user. CORS is open to all origins. Do not deploy this publicly.
 - Uploads have no size limit or type validation in Multer, and are held in memory. The `file_path` saved to the DB is a placeholder; the file is never stored.
-- `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }`, the upload still returns 201, and the error gets saved as `improvement_suggestions`.
+- `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }` and the upload still returns 201.
 - `semantic_score` and `experience_score` are saved as `0`, `overall_match_score` is just the keyword score, and `resume_analyses.job_id` is never set.
 
 **Python service**
-- **Skill matching gives wrong results.** `\b` regex boundaries mean `C++` and `C#` are never detected, while `Go` and `R` match ordinary text such as "go to" and "R&D".
+- Skill matching can still misfire on everyday words: `Express` matches "express interest", and a capitalized `Go` matches sentences like "Go live".
 - Files ending in `.doc` are sent to python-docx, which only reads `.docx`.
 - `spacy` and `scikit-learn` are pinned but unused. `sentence-transformers` and all embedding work from the plan don't exist yet.
 
@@ -256,7 +259,7 @@ Only agents listed here can be used as `subagent_type`. Generic ones like `coder
 ## Build & Test
 
 - After code changes, run the typecheck or syntax check for each service you touched (see Commands under Project)
-- There is no root `package.json`, and no service has a test script. If you add tests, add the command to this file
+- There is no root `package.json`, and only `service-python` has tests. If you add tests elsewhere, add the command to this file
 
 ## CLI Quick Reference
 

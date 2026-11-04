@@ -25,5 +25,6 @@ Matching is regex lookup against a fixed list. `PROJECT_PLAN.md` describes spaCy
 ## Verify before reporting done
 ```bash
 cd service-python && .venv/bin/python -m compileall -q app
+cd service-python && .venv/bin/python -m unittest discover -s tests
 ```
-`skill_extractor.py` only uses the standard library, so you can exercise matching logic directly. There is no test suite. State what you ran.
+Tests cover skill matching only, and parsers and routes have none. Add a test case to `tests/test_skill_extractor.py` for any matching change. State what you ran.
