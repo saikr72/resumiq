@@ -112,13 +112,13 @@ export default function AuthGate() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-300 flex flex-col items-center justify-center space-y-4 p-4 text-center">
+    <div className="min-h-screen bg-[#090d18] text-[#91a0b7] flex flex-col items-center justify-center space-y-4 p-4 text-center">
       {auth.status === 'loading' ? (
         <p>Loading...</p>
       ) : (
         <>
           <p>We couldn't reach the server.</p>
-          <button onClick={() => loadSession()} className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2.5 rounded-xl transition-all">
+          <button onClick={() => loadSession()} className="bg-gradient-to-r from-[#8068e7] to-[#987ff4] hover:brightness-110 text-white font-medium px-5 py-2.5 rounded-lg transition-all">
             Try again
           </button>
         </>

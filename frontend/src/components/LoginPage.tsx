@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, CheckCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { apiFetch, AuthUser } from '../api';
 
 declare global {
@@ -18,7 +18,7 @@ interface LoginPageProps {
 }
 
 const inputClass =
-  'w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:border-indigo-500 outline-none transition-colors';
+  'w-full bg-[#0e1726] border border-[#34435b] rounded-lg p-3 text-sm text-slate-200 focus:border-[#9078f0] outline-none transition-colors';
 const labelClass = 'block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1';
 
 export default function LoginPage({ notice, success, onSignedIn }: LoginPageProps) {
@@ -142,14 +142,12 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
   };
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+    <main className="min-h-screen bg-[#090d18] text-[#eef3ff] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[#111a29] border border-[#263248] rounded-[11px] p-6 sm:p-8 space-y-6 shadow-2xl">
         <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600 p-2 rounded-lg text-white">
-            <Sparkles className="h-6 w-6" />
-          </div>
+          <span className="brand-mark">R</span>
           <div>
-            <h1 className="text-lg font-bold text-white">Resume Intelligence Platform</h1>
+            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--display)' }}>resum<span className="brand-accent">IQ</span></h1>
             <p className="text-xs text-slate-400">
               {mode === 'signin' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
             </p>
@@ -220,7 +218,7 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
             <div className="flex justify-between items-baseline">
               <label htmlFor="password" className={labelClass}>Password</label>
               {mode === 'signin' && (
-                <button type="button" onClick={() => switchMode('forgot')} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                <button type="button" onClick={() => switchMode('forgot')} className="text-xs text-[#b7a5ff] hover:text-[#d6ccff] font-medium">
                   Forgot password?
                 </button>
               )}
@@ -242,7 +240,7 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all shadow-lg"
+            className="w-full bg-gradient-to-r from-[#8068e7] to-[#987ff4] hover:brightness-110 disabled:opacity-50 text-white font-bold py-3 rounded-lg transition-all shadow-lg"
           >
             {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Send reset link'}
           </button>
@@ -253,7 +251,7 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
           <button
             type="button"
             onClick={() => switchMode(mode === 'signin' ? 'register' : 'signin')}
-            className="text-indigo-400 hover:text-indigo-300 font-medium"
+            className="text-[#b7a5ff] hover:text-[#d6ccff] font-medium"
           >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>

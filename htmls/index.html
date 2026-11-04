@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d18">
+  <title>resumIQ — Resume Intelligence Platform</title>
+  <meta name="description" content="An AI-powered workspace to build, analyse and optimise your resume.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar" id="sidebar">
+    <a class="brand" href="#dashboard" aria-label="resumIQ home">
+      <span class="brand-mark">R</span><span>resum<span class="brand-accent">IQ</span></span>
+    </a>
+    <div class="nav-group">
+      <p class="nav-label">WORKSPACE</p>
+      <nav class="nav-list" aria-label="Workspace">
+        <a class="nav-link active" href="#dashboard" data-page="dashboard"><span class="nav-icon">◫</span><span>Overview</span></a>
+        <a class="nav-link" href="#builder" data-page="builder"><span class="nav-icon">▤</span><span>Resume Builder</span></a>
+        <a class="nav-link" href="#analysis" data-page="analysis"><span class="nav-icon">✧</span><span>AI Analysis</span></a>
+        <a class="nav-link" href="#matching" data-page="matching"><span class="nav-icon">⌕</span><span>Job Matching</span></a>
+        <a class="nav-link" href="#resumes" data-page="resumes"><span class="nav-icon">▣</span><span>My Resumes</span></a>
+      </nav>
+    </div>
+    <div class="nav-group">
+      <p class="nav-label">CAREER GROWTH</p>
+      <nav class="nav-list" aria-label="Career growth">
+        <a class="nav-link" href="#insights" data-page="insights"><span class="nav-icon">⌁</span><span>Career Insights</span></a>
+        <a class="nav-link" href="#applications" data-page="applications"><span class="nav-icon">▦</span><span>Applications</span></a>
+      </nav>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="upgrade-card">
+        <span class="eyebrow-pill">FREE PLAN</span>
+        <h3>Unlock your potential</h3>
+        <p>Get deeper AI insights and unlimited resume analysis.</p>
+        <button class="button button-primary button-full" data-toast="Subscription plans will be available soon.">Explore Pro <span>↗</span></button>
+      </div>
+      <div class="profile-mini">
+        <div class="avatar">SK</div>
+        <div class="profile-copy"><strong>Sai Kumar</strong><span>Personal workspace</span></div>
+        <button class="icon-button" aria-label="Profile menu" data-toast="Profile settings coming soon.">···</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <button class="mobile-menu icon-button" id="mobileMenu" aria-label="Toggle navigation">☰</button>
+      <div class="breadcrumbs"><span>Workspace</span><b>/</b><strong id="currentPageName">Overview</strong></div>
+      <div class="topbar-actions">
+        <label class="global-search"><span>⌕</span><input type="search" placeholder="Search workspace" aria-label="Search workspace"><kbd>⌘ K</kbd></label>
+        <button class="icon-button notification-button" aria-label="Notifications" data-toast="You're all caught up.">♧<i></i></button>
+        <div class="avatar avatar-small">SK</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard" data-title="Overview">
+        <div class="page-heading heading-row">
+          <div><p class="overline">YOUR CAREER WORKSPACE</p><h1>Good evening, Sai <span class="sparkle">✦</span></h1><p class="subheading">Your career intelligence is evolving. Here's your latest overview.</p></div>
+          <button class="button button-primary" data-navigate="builder">＋ Create resume</button>
+        </div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span>Resume health</span><span class="stat-icon purple">✧</span></div><strong class="stat-value">74<span>/100</span></strong><p class="positive">↗ 8 points this month</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Job matches</span><span class="stat-icon cyan">⌕</span></div><strong class="stat-value">12</strong><p class="positive">↗ 4 strong matches</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Applications</span><span class="stat-icon blue">▦</span></div><strong class="stat-value">08</strong><p class="neutral">3 in progress</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Profile completeness</span><span class="stat-icon green">◈</span></div><strong class="stat-value">86<span>%</span></strong><p class="positive">↗ Looking strong</p></article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel score-panel">
+            <div class="panel-heading"><div><p class="overline">PERFORMANCE SNAPSHOT</p><h2>Resume intelligence score</h2></div><span class="status-pill">✦ AI ASSESSMENT</span></div>
+            <div class="score-overview">
+              <div class="score-ring" role="img" aria-label="Resume score 74 out of 100"><svg viewBox="0 0 120 120"><circle class="ring-track" cx="60" cy="60" r="49"></circle><circle class="ring-value" cx="60" cy="60" r="49"></circle></svg><div class="ring-label"><strong>74</strong><span>OUT OF 100</span></div></div>
+              <div class="score-copy"><h3>Good foundation. Room to grow.</h3><p>Your resume has strong experience signals. Improve measurable achievements and keyword relevance to increase interview potential.</p><button class="text-button" data-navigate="analysis">View full analysis <span>↗</span></button></div>
+            </div>
+            <div class="metric-list">
+              <div class="metric"><div><span>ATS compatibility</span><b>82%</b></div><div class="progress-track"><span style="width:82%"></span></div></div>
+              <div class="metric"><div><span>Content quality</span><b>76%</b></div><div class="progress-track"><span style="width:76%"></span></div></div>
+              <div class="metric"><div><span>Keyword relevance</span><b>61%</b></div><div class="progress-track"><span style="width:61%"></span></div></div>
+            </div>
+          </article>
+          <article class="panel intelligence-panel">
+            <div class="panel-heading"><div><p class="overline">PERSONALISED FOR YOU</p><h2>AI career intelligence</h2></div><span class="live-dot">LIVE INSIGHT</span></div>
+            <div class="insight-feature"><span class="insight-symbol">✦</span><div><h3>Your next opportunity starts here</h3><p>Your Laravel, MySQL and AWS experience could be positioned more strongly for senior full-stack developer roles.</p></div></div>
+            <div class="recommendation"><span>RECOMMENDED ACTION</span><p>Quantify the impact of your database optimisation and API integration projects. Add measurable outcomes to your work experience.</p></div>
+            <button class="button button-secondary" data-navigate="insights">Explore career insights <span>→</span></button>
+          </article>
+        </div>
+
+        <div class="dashboard-grid lower-grid">
+          <article class="panel">
+            <div class="panel-heading"><h2>Recent resumes</h2><button class="text-button" data-navigate="resumes">View all →</button></div>
+            <div class="resume-list">
+              <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Full Stack Developer — Master</strong><span>Updated today · PDF · Primary resume</span></div><b class="row-score">74/100</b></div>
+              <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Laravel Developer — ATS</strong><span>Updated 2 days ago · PDF</span></div><b class="row-score">81/100</b></div>
+              <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Senior Software Engineer</strong><span>Updated 1 week ago · DOCX</span></div><b class="row-score">68/100</b></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="panel-heading"><h2>Recommended job matches</h2><span class="status-pill">AI MATCHED</span></div>
+            <div class="job-list">
+              <div class="job-row"><div><strong>Senior Full Stack Developer</strong><span>Product company · Remote</span></div><div class="match-score">94%<small>Strong match</small></div></div>
+              <div class="job-row"><div><strong>Laravel Technical Lead</strong><span>Technology · Hybrid</span></div><div class="match-score">88%<small>Strong match</small></div></div>
+              <div class="job-row"><div><strong>Backend Engineer</strong><span>SaaS · Remote</span></div><div class="match-score moderate">76%<small>Potential match</small></div></div>
+            </div>
+            <button class="text-button" data-navigate="matching">Explore all matches →</button>
+          </article>
+        </div>
+      </section>
+
+      <!-- BUILDER -->
+      <section class="page" id="page-builder" data-title="Resume Builder">
+        <div class="page-heading"><p class="overline">CREATE WITH CONFIDENCE</p><h1>Resume Builder</h1><p class="subheading">Build a professional resume with intelligent writing assistance.</p></div>
+        <div class="builder-layout">
+          <article class="panel form-panel">
+            <div class="panel-heading"><div><p class="overline">NEW DOCUMENT</p><h2>Start with your career story</h2></div><span class="status-pill">AI ASSISTED</span></div>
+            <form id="builderForm">
+              <label class="field-label" for="resumeTitle">Resume title</label><input class="form-control" id="resumeTitle" placeholder="e.g. Senior Full Stack Developer" required>
+              <label class="field-label" for="targetRole">Target role</label><input class="form-control" id="targetRole" placeholder="e.g. Senior Software Engineer" required>
+              <label class="field-label" for="resumeNotes">Professional summary or experience notes</label><textarea class="form-control textarea" id="resumeNotes" rows="7" placeholder="Describe your experience, skills, achievements and projects..." required></textarea>
+              <div class="form-hint">Tip: Include measurable results, technologies, project scope and business impact.</div>
+              <button class="button button-primary" type="submit">✦ Generate resume draft</button>
+            </form>
+            <div class="output-box hidden" id="draftOutput" aria-live="polite"></div>
+          </article>
+          <aside class="panel builder-aside"><p class="overline">YOUR WORKFLOW</p><h2>Build it step by step</h2><ol class="steps"><li class="step-current"><span>01</span><div><b>Personal information</b><small>Contact details and links</small></div></li><li><span>02</span><div><b>Professional summary</b><small>Your career positioning</small></div></li><li><span>03</span><div><b>Work experience</b><small>Impact-led achievements</small></div></li><li><span>04</span><div><b>Skills & education</b><small>Relevant qualifications</small></div></li><li><span>05</span><div><b>Projects & export</b><small>Template and PDF</small></div></li></ol><div class="aside-note"><span>✦</span><p>AI suggestions should strengthen your real experience—not invent qualifications or achievements.</p></div></aside>
+        </div>
+      </section>
+
+      <!-- ANALYSIS -->
+      <section class="page" id="page-analysis" data-title="AI Analysis">
+        <div class="page-heading"><p class="overline">UNDERSTAND YOUR RESUME</p><h1>AI Resume Analysis</h1><p class="subheading">Discover strengths, gaps and practical ways to improve your resume.</p></div>
+        <article class="panel upload-panel">
+          <div class="panel-heading"><div><p class="overline">INTELLIGENCE ENGINE</p><h2>Upload your resume</h2></div><span class="status-pill">PDF / DOCX</span></div>
+          <label class="upload-zone" for="resumeFile"><span class="upload-symbol">⇧</span><strong>Drop your resume here or <u>browse files</u></strong><small>PDF or DOCX · Maximum 10 MB</small><input id="resumeFile" type="file" accept=".pdf,.doc,.docx"></label>
+          <p class="file-selected" id="fileStatus" aria-live="polite">No file selected</p>
+          <label class="field-label" for="analysisRole">Target job title <span class="optional">OPTIONAL</span></label><input class="form-control" id="analysisRole" placeholder="e.g. Senior Full Stack Developer">
+          <button class="button button-primary" id="analyzeButton" type="button">✦ Analyse resume</button>
+          <div class="output-box hidden" id="analysisOutput" aria-live="polite"></div>
+        </article>
+        <div class="stats-grid analysis-stats">
+          <article class="stat-card"><div class="stat-top"><span>ATS readiness</span><span class="stat-icon purple">◈</span></div><strong class="stat-value">82%</strong><p class="neutral">Sample assessment</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Keyword relevance</span><span class="stat-icon cyan">⌕</span></div><strong class="stat-value">61%</strong><p class="neutral">Sample assessment</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Readability</span><span class="stat-icon blue">≋</span></div><strong class="stat-value">91%</strong><p class="neutral">Sample assessment</p></article>
+          <article class="stat-card"><div class="stat-top"><span>Impact signals</span><span class="stat-icon green">↗</span></div><strong class="stat-value">68%</strong><p class="neutral">Sample assessment</p></article>
+        </div>
+        <p class="disclaimer">Scores shown are illustrative sample data, not a real ATS result or a guarantee of interview selection.</p>
+      </section>
+
+      <!-- MATCHING -->
+      <section class="page" id="page-matching" data-title="Job Matching">
+        <div class="page-heading"><p class="overline">FIND YOUR NEXT OPPORTUNITY</p><h1>Job Matching Intelligence</h1><p class="subheading">Compare your experience with a role and identify the gaps to close.</p></div>
+        <article class="panel form-panel">
+          <div class="panel-heading"><div><p class="overline">COMPATIBILITY ANALYSIS</p><h2>Match your resume to a job</h2></div><span class="status-pill">SEMANTIC MATCHING</span></div>
+          <form id="matchingForm">
+            <label class="field-label" for="matchRole">Target job title</label><input class="form-control" id="matchRole" placeholder="e.g. Senior Full Stack Developer" required>
+            <label class="field-label" for="jobDescription">Job description</label><textarea class="form-control textarea" id="jobDescription" rows="8" placeholder="Paste the complete job description here..." required></textarea>
+            <label class="field-label" for="matchResume">Resume to compare</label><select class="form-control" id="matchResume"><option>Full Stack Developer — Master</option><option>Laravel Developer — ATS</option><option>Senior Software Engineer</option></select>
+            <button class="button button-primary" type="submit">✦ Calculate compatibility</button>
+          </form>
+          <div class="output-box hidden" id="matchOutput" aria-live="polite"></div>
+        </article>
+        <div class="panel dimensions-panel"><h2>What the matching engine evaluates</h2><div class="metric-list"><div class="metric"><div><span>Technical skills</span><b>Skill overlap</b></div><div class="progress-track"><span style="width:89%"></span></div></div><div class="metric"><div><span>Experience relevance</span><b>Role alignment</b></div><div class="progress-track"><span style="width:81%"></span></div></div><div class="metric"><div><span>Keyword alignment</span><b>Term coverage</b></div><div class="progress-track"><span style="width:67%"></span></div></div></div></div>
+      </section>
+
+      <!-- RESUMES -->
+      <section class="page" id="page-resumes" data-title="My Resumes">
+        <div class="page-heading heading-row"><div><p class="overline">YOUR DOCUMENT WORKSPACE</p><h1>My Resumes</h1><p class="subheading">Manage tailored versions of your professional story.</p></div><button class="button button-primary" data-navigate="builder">＋ New resume</button></div>
+        <article class="panel"><div class="panel-heading"><h2>Resume library</h2><span class="status-pill">3 DOCUMENTS</span></div><div class="resume-list">
+          <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Full Stack Developer — Master</strong><span>PDF · Updated today · Primary</span></div><b class="row-score">74/100</b><button class="icon-button" data-toast="Resume actions coming soon." aria-label="Resume actions">···</button></div>
+          <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Laravel Developer — ATS</strong><span>PDF · Updated 2 days ago</span></div><b class="row-score">81/100</b><button class="icon-button" data-toast="Resume actions coming soon." aria-label="Resume actions">···</button></div>
+          <div class="resume-row"><div class="file-icon">▤</div><div class="row-main"><strong>Senior Software Engineer</strong><span>DOCX · Updated 1 week ago</span></div><b class="row-score">68/100</b><button class="icon-button" data-toast="Resume actions coming soon." aria-label="Resume actions">···</button></div>
+        </div></article>
+      </section>
+
+      <!-- INSIGHTS -->
+      <section class="page" id="page-insights" data-title="Career Insights">
+        <div class="page-heading"><p class="overline">MAKE YOUR NEXT MOVE</p><h1>Career Intelligence</h1><p class="subheading">Turn your experience into a strategic career advantage.</p></div>
+        <article class="panel career-hero"><span class="status-pill">✦ AI CAREER ADVISOR</span><h2>Your experience has a story. Make its impact visible.</h2><p>Based on the skills and career direction in your workspace, here are areas to strengthen. Treat these as prompts for reflection, not assumptions about your qualifications.</p></article>
+        <div class="insight-grid">
+          <article class="panel insight-card"><span class="insight-number">01</span><h3>Strengthen achievement statements</h3><p>Transform responsibility-focused bullet points into measurable accomplishments. Include performance gains, system scale and business outcomes where you have evidence.</p><span class="insight-tag">RESUME IMPACT</span></article>
+          <article class="panel insight-card"><span class="insight-number">02</span><h3>Demonstrate modern engineering</h3><p>Showcase relevant work across frontend, backend, cloud infrastructure, deployment and production operations.</p><span class="insight-tag">TECHNICAL POSITIONING</span></article>
+          <article class="panel insight-card"><span class="insight-number">03</span><h3>Build evidence of technical ownership</h3><p>Describe architecture decisions, API integrations, database optimisation, code quality and collaboration outcomes.</p><span class="insight-tag">CAREER PROGRESSION</span></article>
+        </div>
+      </section>
+
+      <!-- APPLICATIONS -->
+      <section class="page" id="page-applications" data-title="Applications">
+        <div class="page-heading heading-row"><div><p class="overline">STAY ORGANISED</p><h1>Application Tracker</h1><p class="subheading">Keep your opportunities and follow-ups in one place.</p></div><button class="button button-primary" id="addApplication">＋ Add application</button></div>
+        <div class="stats-grid application-stats"><article class="stat-card"><div class="stat-top">Applied</div><strong class="stat-value">08</strong></article><article class="stat-card"><div class="stat-top">Interviews</div><strong class="stat-value">03</strong></article><article class="stat-card"><div class="stat-top">Offers</div><strong class="stat-value">01</strong></article><article class="stat-card"><div class="stat-top">Closed</div><strong class="stat-value">02</strong></article></div>
+        <article class="panel"><div class="panel-heading"><h2>Recent applications</h2><span class="status-pill">DEMO DATA</span></div><div class="application-list" id="applicationList">
+          <div class="job-row"><div><strong>Senior Full Stack Developer</strong><span>Technology company · 02 Nov 2026</span></div><span class="application-status interview">Interview</span></div>
+          <div class="job-row"><div><strong>Laravel Technical Lead</strong><span>Product company · 30 Oct 2026</span></div><span class="application-status applied">Applied</span></div>
+        </div></article>
+      </section>
+    </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="assets/app.js"></script>
+</body>
+</html>

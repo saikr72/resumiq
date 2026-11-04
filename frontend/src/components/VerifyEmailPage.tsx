@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle, Mail } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import { apiFetch, AuthUser } from '../api';
 
 interface VerifyEmailPageProps {
@@ -35,12 +35,10 @@ export default function VerifyEmailPage({ user, notice, onCheckAgain, onLogout }
   const error = message ? (message.type === 'error' ? message.text : undefined) : notice;
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+    <main className="min-h-screen bg-[#090d18] text-[#eef3ff] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[#111a29] border border-[#263248] rounded-[11px] p-6 sm:p-8 space-y-6 shadow-2xl">
         <div className="flex items-center space-x-3">
-          <div className="bg-indigo-600 p-2 rounded-lg text-white">
-            <Mail className="h-6 w-6" />
-          </div>
+          <span className="brand-mark">R</span>
           <h1 className="text-lg font-bold text-white">Verify your email</h1>
         </div>
 
@@ -63,13 +61,13 @@ export default function VerifyEmailPage({ user, notice, onCheckAgain, onLogout }
         )}
 
         <div className="space-y-3">
-          <button onClick={onCheckAgain} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl transition-all shadow-lg">
+          <button onClick={onCheckAgain} className="w-full bg-gradient-to-r from-[#8068e7] to-[#987ff4] hover:brightness-110 text-white font-bold py-3 rounded-lg transition-all shadow-lg">
             I've verified my email
           </button>
           <button
             onClick={resend}
             disabled={isSending}
-            className="w-full border border-slate-700 hover:border-slate-500 disabled:opacity-50 text-slate-200 font-medium py-3 rounded-xl transition-all"
+            className="w-full border border-slate-700 hover:border-slate-500 disabled:opacity-50 text-slate-200 font-medium py-3 rounded-lg transition-all"
           >
             {isSending ? 'Sending...' : 'Send a new link'}
           </button>
@@ -77,7 +75,7 @@ export default function VerifyEmailPage({ user, notice, onCheckAgain, onLogout }
 
         <p className="text-sm text-slate-400 text-center">
           Wrong account?{' '}
-          <button onClick={onLogout} className="text-indigo-400 hover:text-indigo-300 font-medium">
+          <button onClick={onLogout} className="text-[#b7a5ff] hover:text-[#d6ccff] font-medium">
             Sign out
           </button>
         </p>
