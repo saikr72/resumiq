@@ -9,7 +9,7 @@ You own `database/`. Read the "Project" section of `CLAUDE.md` first, including 
 - `database/schema.sql`: the full schema with pgvector. Docker mounts it as an init script.
 - `database/schema_tracker.sql`: the same schema without the `vector` extension and `embedding` columns, for Postgres installs that lack pgvector.
 - `database/migrations/`: numbered upgrade scripts for existing databases.
-- Tables: `users` -> `sessions`; `users` -> `resumes` -> `parsed_resumes`; `job_descriptions`; `resume_analyses`; `applications` -> `interview_stages`.
+- Tables: `users` -> `sessions`; `users` -> `email_tokens`; `users` -> `resumes` -> `parsed_resumes`; `job_descriptions`; `resume_analyses`; `applications` -> `interview_stages`.
 
 ## Rules
 - **Keep both schema files in sync.** Any change that isn't about embeddings goes in both. `diff database/schema.sql database/schema_tracker.sql` should show only the header comment, the `vector` extension line, the two `embedding` columns, and a missing newline at the end of `schema_tracker.sql`.

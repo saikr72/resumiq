@@ -7,7 +7,7 @@ You own `frontend/`. Read the "Project" section of `CLAUDE.md` first, including 
 
 ## Code map
 - `src/App.tsx`: almost the whole UI, in one component with `useState` and plain `fetch`. It has two tabs, `analyze` and `tracker`.
-- `src/components/AuthGate.tsx` decides between the app and `src/components/LoginPage.tsx`.
+- `src/components/AuthGate.tsx` handles emailed links and decides between the app, `LoginPage.tsx`, `VerifyEmailPage.tsx`, and `ResetPasswordPage.tsx` in the same folder.
 - `src/main.tsx`: entry point. `src/index.css`: the Tailwind directives.
 - `lucide-react` provides icons.
 
