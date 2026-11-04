@@ -11,19 +11,29 @@ COMMON_SKILLS = {
     "soft_skills": ["Leadership", "Communication", "Problem Solving", "Agile", "Scrum", "Project Management", "Team Collaboration"]
 }
 
+# Skills that are also everyday words need case-sensitive rules of their own.
+AMBIGUOUS_SKILL_PATTERNS = {
+    "Go": re.compile(r'\bGo(?![\w-]|\s+to\b)|\b[Gg]olang\b'),
+    "R": re.compile(r'(?<![\w&])R(?![\w&])'),
+}
+
+def _matches_skill(skill: str, text: str) -> bool:
+    ambiguous = AMBIGUOUS_SKILL_PATTERNS.get(skill)
+    if ambiguous:
+        return ambiguous.search(text) is not None
+
+    # \b cannot follow a symbol, so it would never match C++ or C#.
+    # A name ending in a symbol may be followed by anything but another symbol (C++17).
+    after = r'(?![+#])' if not skill[-1].isalnum() else r'(?![\w+#])'
+    pattern = r'(?<![\w+#])' + re.escape(skill) + after
+    return re.search(pattern, text, re.IGNORECASE) is not None
+
 def extract_skills(text: str) -> Dict[str, List[str]]:
     """Extract recognized skills from text based on skill taxonomy."""
-    text_lower = text.lower()
     extracted = {}
 
     for category, skill_list in COMMON_SKILLS.items():
-        found = []
-        for skill in skill_list:
-            # Use regex word boundaries for precision
-            pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-            if re.search(pattern, text_lower):
-                found.append(skill)
-        extracted[category] = found
+        extracted[category] = [skill for skill in skill_list if _matches_skill(skill, text)]
 
     return extracted
 
