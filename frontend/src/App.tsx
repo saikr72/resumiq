@@ -630,11 +630,11 @@ export default function App() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 overflow-x-auto pb-4">
+            <div className="flex gap-4 overflow-x-auto pb-4">
               {STATUS_ORDER.map((status) => {
                 const filteredApps = applications.filter(app => app.status === status);
                 return (
-                  <div key={status} className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 flex flex-col h-full min-w-[240px]">
+                  <div key={status} className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 flex flex-col flex-none w-60">
                     <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-800/50">
                       <span className="font-bold text-xs uppercase tracking-widest text-slate-400">{STATUS_LABELS[status]}</span>
                       <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-bold">{filteredApps.length}</span>
