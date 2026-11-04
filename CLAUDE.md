@@ -8,21 +8,21 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 |------|-------|------|-------|
 | `frontend/` | React 18, Vite, TypeScript | 3000 | `frontend-ui` |
 | `backend-node/` | Express, TypeScript, `pg`, Anthropic SDK | 5000 | `api-backend` |
-| `service-python/` | FastAPI, pdfplumber, python-docx | 8000 | `parsing-nlp` |
-| `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5434 on the host, 5432 between containers | `database-schema` |
+| `service-python/` | FastAPI, pdfplumber, python-docx | 8000 (not published by Docker) | `parsing-nlp` |
+| `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5434 on localhost only, 5432 between containers | `database-schema` |
 
 **Frontend:** `frontend/src/App.tsx` is the workspace shell with hash routing, and each screen is in `src/pages/`. The visual design comes from `htmls/`, and `src/workspace.css` is its stylesheet plus additions at the end.
 
 **Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
-**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (set to `true` when served over HTTPS), `NODE_ENV`, and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
+**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (defaults to on when `NODE_ENV=production`), `NODE_ENV`, `TRUST_PROXY` (number of proxies in front of the API), and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. Docker Compose also requires `POSTGRES_PASSWORD`, and takes `VITE_API_URL` (build time) and `API_ORIGIN` (allowed by the frontend's Content Security Policy in `frontend/nginx.conf.template`). Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
 
 **Authentication:** `backend-node/src/auth.ts` handles email/password and Google sign-in. Sessions are random tokens in an `httpOnly` cookie, stored hashed in the `sessions` table. Every `/api` route except `/api/health` and `/api/auth/*` requires a session and a verified email, and each route must scope its queries to `req.user.id`. Verification and reset links (`src/email.ts`) are single-use, stored hashed in `email_tokens`, and carry the token in the URL fragment. Linking Google to an unverified password account removes the password and ends that account's sessions, because its owner hasn't proved control of the email; a verified account keeps both.
 
 ### Commands
 
 ```bash
-docker compose up --build   # Full stack; the frontend is at http://localhost:3000. Requires host ports 3000, 5000, 5434, and 8000 to be free
+docker compose up --build   # Full stack; the frontend is at http://localhost:3000. Needs POSTGRES_PASSWORD set, and host ports 3000, 5000, and 5434 free
 
 # Typecheck and build
 cd backend-node && npm run build
@@ -56,28 +56,27 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 
 **Frontend**
 - `index.html` links `/vite.svg`, which does not exist, so the favicon returns 404 under nginx.
-- The API URL is hardcoded to `http://localhost:5000` in `frontend/src/api.ts`.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
-- The 10 MB upload limit is only enforced in the browser, not by the API.
 - The Resume Builder has no backend: it holds a brief in the browser and says so. "Explore Pro" is a placeholder.
 - Scores are skill keyword matches only. The UI must not present them as ATS, semantic, or experience scores, and must not show sample data from `htmls/`.
 
 **Backend**
 - `POST /api/applications/:id/interviews` ignores the `status` sent by the form, so new rounds are always `SCHEDULED`.
 - Interview rows created before the timezone fix may hold shifted times. They have not been corrected.
-- Client errors return 500: unsupported or corrupt uploads, missing required fields, and malformed UUIDs.
+- Client errors return 500 for missing required fields and malformed UUIDs.
 - Signed-in users can't change their password or email address, other than through the reset email.
 - If someone registers with another person's address and that person clicks the verification link, the registrant's password stays valid. The email warns against clicking unexpected links, and a password reset removes the access.
-- The Python service is published on host port 8000 with no authentication, so anything that can reach it can bypass login to use the parser. Do not expose it publicly.
-- Rate limits are stored in memory per process, so they reset on restart and aren't shared between instances. They also need `trust proxy` configured if the API is put behind a proxy.
-- Uploads have no size limit or type validation in Multer, and are held in memory. The `file_path` saved to the DB is a placeholder; the file is never stored.
+- The Python service has no authentication of its own. Docker keeps it off the host network, so keep it that way in any deployment.
+- Rate limits are stored in memory per process, so they reset on restart and aren't shared between instances.
+- HTTPS isn't set up. A deployment needs a TLS-terminating proxy, with `TRUST_PROXY` set and `NODE_ENV=production`.
+- There is no data-retention policy: resumes are kept until the user deletes them or their account.
+- Uploads are held in memory while processed (10 MB per file). The `file_path` saved to the DB is a placeholder; the file is never stored.
 - `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }` and the upload still returns 201.
 - `semantic_score` and `experience_score` are saved as `0`, and `overall_match_score` is just the keyword score.
 
 **Python service**
 - Skill matching can still misfire on everyday words: `Express` matches "express interest", and a capitalized `Go` matches sentences like "Go live".
-- Files ending in `.doc` are sent to python-docx, which only reads `.docx`.
 - `spacy` and `scikit-learn` are pinned but unused. `sentence-transformers` and all embedding work from the plan don't exist yet.
 
 ## Rules

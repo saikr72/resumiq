@@ -7,7 +7,7 @@ You own `backend-node/`, the API gateway between the React frontend, the Python 
 
 ## Code map
 - `src/index.ts`: app setup and every feature route (`/api/health`, `/api/resumes`, `/api/analyses`, `/api/applications`, `/api/applications/:id/interviews`, `/api/interview_stages/:id`).
-- `src/auth.ts`: `/api/auth/*` routes (email/password, Google, sessions, verification, password reset) and the `requireAuth` and `requireVerifiedEmail` middleware.
+- `src/auth.ts`: `/api/auth/*` routes (email/password, Google, sessions, verification, password reset, account export and deletion) and the `requireAuth` and `requireVerifiedEmail` middleware.
 - `src/email.ts`: sends verification and reset emails over SMTP. Never log email links outside its development fallback.
 - `src/db.ts`: the shared `query()` helper over a `pg` pool, configured by `DATABASE_URL`.
 - `src/llm.ts`: `generateResumeSuggestions()`. It returns an `{ error }` object on failure rather than throwing, and callers persist whatever it returns.
