@@ -31,6 +31,9 @@ services:
       DATABASE_URL: postgresql://postgres:postgrespassword@postgres:5432/resume_intelligence
       PYTHON_SERVICE_URL: http://service-python:8000
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,37 +1,26 @@
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
 import axios from 'axios';
 import FormData from 'form-data';
+import { authRouter, requireAuth } from './auth';
 import { query } from './db';
 import { generateResumeSuggestions } from './llm';
 
 dotenv.config();
-// ... (rest of the setup remains same)
 const app = express();
 const PORT = process.env.PORT || 5000;
 const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
 
-app.use(cors());
+// Credentialed requests need an exact origin, never a wildcard
+app.use(cors({ origin: process.env.FRONTEND_ORIGIN || 'http://localhost:3000', credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 // Configure Multer for file uploads (memory storage)
 const upload = multer({ storage: multer.memoryStorage() });
-
-// Ensure a test user exists
-async function ensureTestUser() {
-  const res = await query('SELECT id FROM users LIMIT 1');
-  if (res.rowCount === 0) {
-    await query(
-      'INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3)',
-      ['test@example.com', 'hashed_password', 'Test User']
-    );
-    console.log('Test user created');
-  }
-}
-
-ensureTestUser().catch(console.error);
 
 app.get('/api/health', (req, res) => {
   res.json({
@@ -40,6 +29,12 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString()
   });
 });
+
+app.use('/api/auth', authRouter);
+
+// Everything below requires a signed-in user. This runs before Multer, so
+// anonymous uploads are rejected without being read into memory.
+app.use('/api', requireAuth);
 
 // Resume upload and parse endpoint
 app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
@@ -60,24 +55,22 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
 
     const parsedData = pythonRes.data;
 
-    // 2. Get the test user ID
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
 
-    // 3. Save resume to DB
+    // 2. Save resume to DB
     const resumeInsertRes = await query(
       'INSERT INTO resumes (user_id, title, file_path, file_type, raw_text) VALUES ($1, $2, $3, $4, $5) RETURNING id',
       [userId, req.file.originalname, 'uploads/' + req.file.originalname, req.file.originalname.split('.').pop(), parsedData.raw_text]
     );
     const resumeId = resumeInsertRes.rows[0].id;
 
-    // 4. Save parsed metadata
+    // 3. Save parsed metadata
     await query(
       'INSERT INTO parsed_resumes (resume_id, skills) VALUES ($1, $2)',
       [resumeId, JSON.stringify(parsedData.extracted_skills)]
     );
 
-    // 5. If job description provided, perform initial keyword comparison AND LLM suggestions
+    // 4. If job description provided, perform initial keyword comparison AND LLM suggestions
     let comparison = null;
     let aiSuggestions = null;
 
@@ -128,8 +121,7 @@ app.post('/api/resumes/upload', upload.single('resume'), async (req, res) => {
 // GET /api/applications - List all applications for user
 app.get('/api/applications', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
 
     const result = await query(
       `SELECT a.*, jd.company_name as jd_company, jd.job_title as jd_title
@@ -150,8 +142,7 @@ app.get('/api/applications', async (req, res) => {
 // POST /api/applications - Create new tracked application
 app.post('/api/applications', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
 
     const {
       resumeId,
@@ -164,6 +155,20 @@ app.post('/api/applications', async (req, res) => {
       status,
       notes
     } = req.body;
+
+    // The list route returns details of the linked job, so links must stay within the user's own data
+    if (resumeId) {
+      const owned = await query('SELECT id FROM resumes WHERE id = $1 AND user_id = $2', [resumeId, userId]);
+      if (owned.rowCount === 0) {
+        return res.status(404).json({ error: 'Resume not found' });
+      }
+    }
+    if (jobId) {
+      const owned = await query('SELECT id FROM job_descriptions WHERE id = $1 AND user_id = $2', [jobId, userId]);
+      if (owned.rowCount === 0) {
+        return res.status(404).json({ error: 'Job description not found' });
+      }
+    }
 
     const result = await query(
       `INSERT INTO applications (user_id, resume_id, job_id, company_name, job_title, job_url, salary_range, location, status, notes)
@@ -182,8 +187,7 @@ app.post('/api/applications', async (req, res) => {
 // PATCH /api/applications/:id - Update application
 app.patch('/api/applications/:id', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
     const { id } = req.params;
 
     const { status, notes, companyName, jobTitle, jobUrl, salaryRange, location } = req.body;
@@ -246,8 +250,7 @@ app.patch('/api/applications/:id', async (req, res) => {
 // DELETE /api/applications/:id - Delete application
 app.delete('/api/applications/:id', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
     const { id } = req.params;
 
     const result = await query(
@@ -269,8 +272,7 @@ app.delete('/api/applications/:id', async (req, res) => {
 // POST /api/applications/:id/interviews - Add interview stage
 app.post('/api/applications/:id/interviews', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
     const { id } = req.params;
 
     // Verify application belongs to user
@@ -298,8 +300,7 @@ app.post('/api/applications/:id/interviews', async (req, res) => {
 // GET /api/applications/:id/interviews - Get all interview stages for an application
 app.get('/api/applications/:id/interviews', async (req, res) => {
   try {
-    const userRes = await query('SELECT id FROM users LIMIT 1');
-    const userId = userRes.rows[0].id;
+    const userId = req.user!.id;
     const { id } = req.params;
 
     // Verify ownership
@@ -327,8 +328,8 @@ app.patch('/api/interview_stages/:id', async (req, res) => {
     const { status, notes, stageName, scheduledAt, interviewerInfo } = req.body;
 
     const updates: string[] = [];
-    const values: any[] = [id];
-    let paramIndex = 2;
+    const values: any[] = [id, req.user!.id];
+    let paramIndex = 3;
 
     if (status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
@@ -356,7 +357,9 @@ app.patch('/api/interview_stages/:id', async (req, res) => {
     }
 
     const result = await query(
-      `UPDATE interview_stages SET ${updates.join(', ')} WHERE id = $1 RETURNING *`,
+      `UPDATE interview_stages SET ${updates.join(', ')}
+       WHERE id = $1 AND application_id IN (SELECT id FROM applications WHERE user_id = $2)
+       RETURNING *`,
       values
     );
 
