@@ -64,7 +64,7 @@ export interface AnalysisResult {
   parsedSkills?: Record<string, string[]>;
 }
 
-export type PageId = 'dashboard' | 'builder' | 'analysis' | 'matching' | 'resumes' | 'insights' | 'applications';
+export type PageId = 'dashboard' | 'builder' | 'analysis' | 'matching' | 'resumes' | 'insights' | 'applications' | 'account';
 
 export interface WorkspaceData {
   resumes: ResumeSummary[];

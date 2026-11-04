@@ -99,7 +99,7 @@ export default function AuthGate() {
   };
 
   if (auth.status === 'signed-in') {
-    return <App user={auth.user} onLogout={handleLogout} />;
+    return <App user={auth.user} onLogout={handleLogout} onAccountDeleted={() => setAuth({ status: 'signed-out', success: 'Your account and data have been deleted.' })} />;
   }
   if (auth.status === 'unverified') {
     return <VerifyEmailPage user={auth.user} notice={auth.notice} onCheckAgain={() => loadSession()} onLogout={handleLogout} />;

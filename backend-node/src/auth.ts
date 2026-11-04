@@ -72,7 +72,8 @@ function cookieOptions() {
   return {
     httpOnly: true,
     sameSite: 'lax' as const,
-    secure: process.env.COOKIE_SECURE === 'true',
+    // Secure by default in production, because a session cookie must not travel over plain HTTP
+    secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === 'true' : process.env.NODE_ENV === 'production',
     path: '/',
   };
 }
@@ -509,6 +510,65 @@ authRouter.post('/logout', async (req, res) => {
   } catch (error: any) {
     console.error('Logout Error:', error.message);
     res.status(500).json({ error: 'Failed to sign out' });
+  }
+});
+
+// Everything held about the signed-in user, except credentials
+authRouter.get('/account/export', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user!.id;
+    const all = async (sql: string) => (await query(sql, [userId])).rows;
+    const profile = await all('SELECT email, full_name, email_verified_at, google_id IS NOT NULL AS google_linked, created_at FROM users WHERE id = $1');
+
+    res.setHeader('Content-Disposition', 'attachment; filename="resumiq-data-export.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      profile: profile[0],
+      resumes: await all('SELECT id, title, file_type, raw_text, created_at FROM resumes WHERE user_id = $1 ORDER BY created_at'),
+      parsedResumes: await all(
+        `SELECT p.resume_id, p.skills, p.created_at FROM parsed_resumes p
+         JOIN resumes r ON r.id = p.resume_id WHERE r.user_id = $1 ORDER BY p.created_at`
+      ),
+      jobDescriptions: await all('SELECT id, job_title, raw_text, created_at FROM job_descriptions WHERE user_id = $1 ORDER BY created_at'),
+      analyses: await all(
+        `SELECT a.id, a.resume_id, a.job_id, a.overall_match_score, a.matched_skills, a.missing_skills, a.improvement_suggestions, a.created_at
+         FROM resume_analyses a JOIN resumes r ON r.id = a.resume_id WHERE r.user_id = $1 ORDER BY a.created_at`
+      ),
+      applications: await all('SELECT * FROM applications WHERE user_id = $1 ORDER BY created_at'),
+      interviews: await all(
+        `SELECT i.* FROM interview_stages i
+         JOIN applications a ON a.id = i.application_id WHERE a.user_id = $1 ORDER BY i.created_at`
+      ),
+    });
+  } catch (error: any) {
+    console.error('Export Account Error:', error.message);
+    res.status(500).json({ error: 'Failed to export your data' });
+  }
+});
+
+// Deletes the user. Foreign keys cascade to everything they own, including sessions.
+authRouter.delete('/account', signInLimiter, requireAuth, async (req, res) => {
+  try {
+    const { confirmEmail, password } = req.body ?? {};
+    if (normalizeEmail(confirmEmail) !== req.user!.email) {
+      return res.status(400).json({ error: 'Type your email address to confirm' });
+    }
+
+    const result = await query('SELECT password_hash FROM users WHERE id = $1', [req.user!.id]);
+    const passwordHash = result.rows[0]?.password_hash;
+    if (passwordHash) {
+      const valid = typeof password === 'string' && password.length <= MAX_PASSWORD_LENGTH && (await verifyPassword(password, passwordHash));
+      if (!valid) {
+        return res.status(401).json({ error: 'Incorrect password' });
+      }
+    }
+
+    await query('DELETE FROM users WHERE id = $1', [req.user!.id]);
+    res.clearCookie(SESSION_COOKIE, cookieOptions());
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Delete Account Error:', error.message);
+    res.status(500).json({ error: 'Failed to delete your account' });
   }
 });
 

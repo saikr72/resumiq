@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
 import { apiFetch, AuthUser } from './api';
+import AccountPage from './pages/AccountPage';
 import AnalysisPage from './pages/AnalysisPage';
 import ApplicationsPage from './pages/ApplicationsPage';
 import BuilderPage from './pages/BuilderPage';
@@ -18,6 +19,7 @@ const PAGE_TITLES: Record<PageId, string> = {
   resumes: 'My Resumes',
   insights: 'Career Insights',
   applications: 'Applications',
+  account: 'Account',
 };
 
 const NAV_GROUPS: { label: string; links: [PageId, string, string][] }[] = [
@@ -54,9 +56,10 @@ function initials(user: AuthUser): string {
 interface AppProps {
   user: AuthUser;
   onLogout: () => void;
+  onAccountDeleted: () => void;
 }
 
-export default function App({ user, onLogout }: AppProps) {
+export default function App({ user, onLogout, onAccountDeleted }: AppProps) {
   const [page, setPage] = useState<PageId>(pageFromHash);
   const [data, setData] = useState<WorkspaceData>({ resumes: [], analyses: [], applications: [] });
   const [isLoading, setIsLoading] = useState(true);
@@ -158,7 +161,10 @@ export default function App({ user, onLogout }: AppProps) {
               <strong title={displayName} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</strong>
               <span>Personal workspace</span>
             </div>
-            <button className="icon-button" onClick={onLogout} aria-label="Sign out" title="Sign out">
+            <a className="icon-button" href="#account" aria-label="Account settings" title="Account settings" style={{ display: 'grid', placeItems: 'center', marginLeft: 'auto', border: 0, flexShrink: 0 }}>
+              <Settings size={15} />
+            </a>
+            <button className="icon-button" onClick={onLogout} aria-label="Sign out" title="Sign out" style={{ marginLeft: 0, flexShrink: 0 }}>
               <LogOut size={15} style={{ margin: 'auto' }} />
             </button>
           </div>
@@ -200,6 +206,7 @@ export default function App({ user, onLogout }: AppProps) {
                 {page === 'resumes' && <ResumesPage {...pageProps} />}
                 {page === 'insights' && <InsightsPage {...pageProps} />}
                 {page === 'applications' && <ApplicationsPage {...pageProps} />}
+                {page === 'account' && <AccountPage {...pageProps} user={user} onAccountDeleted={onAccountDeleted} />}
               </>
             )}
           </section>
