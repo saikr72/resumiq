@@ -9,16 +9,16 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 | `frontend/` | React 18, Vite, TypeScript | 3000 | `frontend-ui` |
 | `backend-node/` | Express, TypeScript, `pg`, Anthropic SDK | 5000 | `api-backend` |
 | `service-python/` | FastAPI, pdfplumber, python-docx | 8000 | `parsing-nlp` |
-| `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5432 | `database-schema` |
+| `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5434 on the host, 5432 between containers | `database-schema` |
 
 **Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
-**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`.
+**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`. Under Docker, `backend-node/.env` is not used: Compose takes `ANTHROPIC_API_KEY` from the shell or a root `.env` file, and without it AI suggestions fail.
 
 ### Commands
 
 ```bash
-docker compose up postgres service-python backend-node   # Docker stack, excluding the frontend (see Known issues)
+docker compose up --build   # Full stack; the frontend is at http://localhost:3000. Requires host ports 3000, 5000, 5434, and 8000 to be free
 
 # Typecheck and build
 cd backend-node && npm run build
@@ -51,7 +51,7 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - `backend-node/start`, `stop`, and `query` are stray one-line files containing only `postgresql-x64-17`.
 
 **Frontend**
-- **The Docker frontend is unreachable as configured.** Its image serves nginx on port 80, but compose maps `3000:3000`.
+- `index.html` links `/vite.svg`, which does not exist, so the favicon returns 404 under nginx.
 - The API URL is hardcoded to `http://localhost:5000`, including a separate literal in the upload call.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
 - The header navigation overflows the page at phone widths (the page is 452px wide at a 375px viewport).
