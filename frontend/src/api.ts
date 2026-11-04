@@ -6,6 +6,7 @@ export interface AuthUser {
   id: string;
   email: string;
   fullName: string | null;
+  emailVerified: boolean;
 }
 
 // Sends the session cookie on every request, and reports when the session has ended

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Sparkles } from 'lucide-react';
+import { AlertCircle, CheckCircle, Sparkles } from 'lucide-react';
 import { apiFetch, AuthUser } from '../api';
 
 declare global {
@@ -13,6 +13,7 @@ const GOOGLE_BUTTON_MAX_WIDTH = 400; // Google's limit
 
 interface LoginPageProps {
   notice?: string;
+  success?: string;
   onSignedIn: (user: AuthUser) => void;
 }
 
@@ -20,12 +21,14 @@ const inputClass =
   'w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:border-indigo-500 outline-none transition-colors';
 const labelClass = 'block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1';
 
-export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
-  const [mode, setMode] = useState<'signin' | 'register'>('signin');
+export default function LoginPage({ notice, success, onSignedIn }: LoginPageProps) {
+  const [mode, setMode] = useState<'signin' | 'register' | 'forgot'>('signin');
+  const [resetRequestedFor, setResetRequestedFor] = useState('');
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showIncomingMessage, setShowIncomingMessage] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [googleClientId, setGoogleClientId] = useState<string | null>(null);
   const googleButtonRef = useRef<HTMLDivElement>(null);
@@ -53,9 +56,35 @@ export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
     }
   };
 
+  const requestPasswordReset = async () => {
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const response = await apiFetch('/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setError(data?.error || 'Failed to request a password reset');
+        return;
+      }
+      setResetRequestedFor(email);
+    } catch (err) {
+      console.error('Password reset request error:', err);
+      setError("We couldn't reach the server. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'signin') {
+    setShowIncomingMessage(false);
+    if (mode === 'forgot') {
+      requestPasswordReset();
+    } else if (mode === 'signin') {
       postAuth('/auth/login', { email, password }, 'Failed to sign in');
     } else {
       postAuth('/auth/register', { email, password, fullName }, 'Failed to create account');
@@ -105,9 +134,11 @@ export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
     };
   }, [googleClientId]);
 
-  const switchMode = () => {
-    setMode(mode === 'signin' ? 'register' : 'signin');
+  const switchMode = (next: 'signin' | 'register' | 'forgot') => {
+    setMode(next);
     setError('');
+    setShowIncomingMessage(false);
+    setResetRequestedFor('');
   };
 
   return (
@@ -120,27 +151,42 @@ export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
           <div>
             <h1 className="text-lg font-bold text-white">Resume Intelligence Platform</h1>
             <p className="text-xs text-slate-400">
-              {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
+              {mode === 'signin' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
             </p>
           </div>
         </div>
 
-        {(error || notice) && (
+        {success && showIncomingMessage && (
+          <div role="status" className="flex items-start space-x-3 border border-emerald-800 bg-emerald-900/30 rounded-xl p-3 text-sm text-emerald-200">
+            <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {(error || (notice && showIncomingMessage)) && (
           <div role="alert" className="flex items-start space-x-3 border border-amber-800 bg-amber-900/30 rounded-xl p-3 text-sm text-amber-200">
             <AlertCircle className="h-5 w-5 flex-shrink-0 text-amber-400" />
             <span>{error || notice}</span>
           </div>
         )}
 
+        {/* Hidden rather than removed, so Google's button doesn't need rendering again */}
         {googleClientId && (
-          <>
+          <div className={mode === 'forgot' ? 'hidden' : 'space-y-6'}>
             <div ref={googleButtonRef} className="flex justify-center min-h-[44px]" />
             <div className="flex items-center space-x-3 text-xs text-slate-500">
               <div className="flex-1 border-t border-slate-800" />
               <span>or</span>
               <div className="flex-1 border-t border-slate-800" />
             </div>
-          </>
+          </div>
+        )}
+
+        {resetRequestedFor && (
+          <div role="status" className="flex items-start space-x-3 border border-emerald-800 bg-emerald-900/30 rounded-xl p-3 text-sm text-emerald-200">
+            <CheckCircle className="h-5 w-5 flex-shrink-0 text-emerald-400" />
+            <span>If an account exists for {resetRequestedFor}, we've sent a link to reset the password. It expires in 1 hour.</span>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -169,8 +215,16 @@ export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
               className={inputClass}
             />
           </div>
+          {mode !== 'forgot' && (
           <div>
-            <label htmlFor="password" className={labelClass}>Password</label>
+            <div className="flex justify-between items-baseline">
+              <label htmlFor="password" className={labelClass}>Password</label>
+              {mode === 'signin' && (
+                <button type="button" onClick={() => switchMode('forgot')} className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                  Forgot password?
+                </button>
+              )}
+            </div>
             <input
               id="password"
               type="password"
@@ -184,18 +238,23 @@ export default function LoginPage({ notice, onSignedIn }: LoginPageProps) {
             />
             {mode === 'register' && <p className="text-xs text-slate-500 mt-1">At least 8 characters</p>}
           </div>
+          )}
           <button
             type="submit"
             disabled={isSubmitting}
             className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition-all shadow-lg"
           >
-            {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign in' : 'Create account'}
+            {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign in' : mode === 'register' ? 'Create account' : 'Send reset link'}
           </button>
         </form>
 
         <p className="text-sm text-slate-400 text-center">
-          {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-          <button type="button" onClick={switchMode} className="text-indigo-400 hover:text-indigo-300 font-medium">
+          {mode === 'signin' ? "Don't have an account?" : mode === 'register' ? 'Already have an account?' : 'Remembered it?'}{' '}
+          <button
+            type="button"
+            onClick={() => switchMode(mode === 'signin' ? 'register' : 'signin')}
+            className="text-indigo-400 hover:text-indigo-300 font-medium"
+          >
             {mode === 'signin' ? 'Create one' : 'Sign in'}
           </button>
         </p>
