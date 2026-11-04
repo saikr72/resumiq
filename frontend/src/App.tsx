@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, CheckCircle, AlertCircle, BarChart2, Briefcase, Sparkles, Upload, Plus, Trash2, Edit2, Calendar, User, MapPin, DollarSign, ChevronDown, ChevronUp, Save, X } from 'lucide-react';
-
-const API_BASE = 'http://localhost:5000/api';
+import { FileText, CheckCircle, AlertCircle, BarChart2, Briefcase, Sparkles, Upload, Plus, Trash2, Edit2, Calendar, User, MapPin, DollarSign, ChevronDown, ChevronUp, Save, X, LogOut } from 'lucide-react';
+import { apiFetch, AuthUser } from './api';
 
 interface Application {
   id: string;
@@ -39,7 +38,12 @@ const STATUS_LABELS: Record<string, string> = {
   'REJECTED': 'Rejected'
 };
 
-export default function App() {
+interface AppProps {
+  user: AuthUser;
+  onLogout: () => void;
+}
+
+export default function App({ user, onLogout }: AppProps) {
   const [activeTab, setActiveTab] = useState<'analyze' | 'tracker'>('analyze');
   const [file, setFile] = useState<File | null>(null);
   const [jobDescription, setJobDescription] = useState('');
@@ -94,7 +98,7 @@ export default function App() {
     formData.append('jobDescription', jobDescription);
 
     try {
-      const response = await fetch('http://localhost:5000/api/resumes/upload', {
+      const response = await apiFetch('/resumes/upload', {
         method: 'POST',
         body: formData,
       });
@@ -120,7 +124,7 @@ export default function App() {
   const fetchApplications = async () => {
     setIsLoadingApps(true);
     try {
-      const response = await fetch(`${API_BASE}/applications`);
+      const response = await apiFetch(`/applications`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setApplications(data);
@@ -134,7 +138,7 @@ export default function App() {
   const handleAddApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_BASE}/applications`, {
+      const response = await apiFetch(`/applications`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newApp),
@@ -159,7 +163,7 @@ export default function App() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const response = await fetch(`${API_BASE}/applications/${id}`, {
+      const response = await apiFetch(`/applications/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
@@ -174,7 +178,7 @@ export default function App() {
   const handleDeleteApplication = async (id: string) => {
     if (!confirm('Are you sure you want to delete this application?')) return;
     try {
-      const response = await fetch(`${API_BASE}/applications/${id}`, {
+      const response = await apiFetch(`/applications/${id}`, {
         method: 'DELETE',
       });
       if (!response.ok) throw new Error('Delete failed');
@@ -187,7 +191,7 @@ export default function App() {
   const fetchInterviews = async (appId: string) => {
     setIsLoadingInterviews(true);
     try {
-      const response = await fetch(`${API_BASE}/applications/${appId}/interviews`);
+      const response = await apiFetch(`/applications/${appId}/interviews`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
       setInterviews(data);
@@ -202,7 +206,7 @@ export default function App() {
     e.preventDefault();
     if (!selectedAppId) return;
     try {
-      const response = await fetch(`${API_BASE}/applications/${selectedAppId}/interviews`, {
+      const response = await apiFetch(`/applications/${selectedAppId}/interviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // datetime-local has no offset, so convert while the browser's timezone is known
@@ -229,7 +233,7 @@ export default function App() {
 
   const handleUpdateInterview = async (id: string, updates: Partial<InterviewStage>) => {
     try {
-      const response = await fetch(`${API_BASE}/interview_stages/${id}`, {
+      const response = await apiFetch(`/interview_stages/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
@@ -396,6 +400,19 @@ export default function App() {
             <span>Application Tracker</span>
           </button>
         </nav>
+
+        <div className="flex items-center space-x-3 ml-4">
+          <span className="hidden md:inline text-sm text-slate-400 max-w-[200px] truncate" title={user.email}>
+            {user.fullName || user.email}
+          </span>
+          <button
+            onClick={onLogout}
+            className="flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-all"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Area */}
