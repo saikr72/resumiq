@@ -75,7 +75,7 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - HTTPS isn't set up. A deployment needs a TLS-terminating proxy, with `TRUST_PROXY` set and `NODE_ENV=production`.
 - There is no data-retention policy: resumes are kept until the user deletes them or their account.
 - Uploads are held in memory while processed (10 MB per file). The `file_path` saved to the DB is a placeholder; the file is never stored.
-- `src/llm.ts` uses the old model ID `claude-3-5-sonnet-20241022` with SDK `^0.18.0`. It has not been confirmed to work: the only live test failed on low account credit. On failure, it returns `{ error }` and the upload still returns 201.
+- When `src/llm.ts` fails, it returns `{ error }` and the upload still returns 201.
 - `semantic_score` and `experience_score` are saved as `0`, and `overall_match_score` is just the keyword score.
 
 **Python service**

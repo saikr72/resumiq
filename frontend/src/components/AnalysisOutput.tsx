@@ -80,6 +80,12 @@ export default function AnalysisOutput({ result }: { result: AnalysisResult }) {
               ))}
             </>
           )}
+          {aiSuggestions.notes && (
+            <>
+              <h3>Check before using</h3>
+              <p>{aiSuggestions.notes}</p>
+            </>
+          )}
         </>
       )}
     </div>

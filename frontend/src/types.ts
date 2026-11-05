@@ -38,6 +38,7 @@ export interface AiSuggestions {
   critical_missing_skills?: string[];
   actionable_suggestions?: string[];
   optimized_bullet_points?: { original: string; optimized: string }[];
+  notes?: string;
 }
 
 export interface AnalysisSummary {
