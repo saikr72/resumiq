@@ -41,8 +41,6 @@ export default function MatchingPage({ data, navigate, refresh, toast }: PagePro
     }
   };
 
-  const score = result?.comparison ? Math.round(result.comparison.match_percentage) : null;
-
   return (
     <>
       <div className="page-heading">
@@ -53,7 +51,7 @@ export default function MatchingPage({ data, navigate, refresh, toast }: PagePro
       <article className="panel form-panel">
         <div className="panel-heading">
           <div><p className="overline">COMPATIBILITY ANALYSIS</p><h2>Match your resume to a job</h2></div>
-          <span className="status-pill">KEYWORD MATCHING</span>
+          <span className="status-pill">MATCH SCORE</span>
         </div>
         {data.resumes.length === 0 ? (
           <div className="empty-state">
@@ -81,14 +79,13 @@ export default function MatchingPage({ data, navigate, refresh, toast }: PagePro
         {result && <AnalysisOutput result={result} />}
       </article>
       <div className="panel dimensions-panel">
-        <h2>What the matching engine evaluates</h2>
-        <div className="metric-list">
-          <div className="metric">
-            <div><span>Skill keywords</span><b>{score === null ? 'Term coverage' : `${score}%`}</b></div>
-            <div className="progress-track"><span style={{ width: `${score ?? 0}%` }} /></div>
-          </div>
-        </div>
-        <p className="form-hint">Matching currently compares skill keywords. Semantic and experience matching aren't available yet.</p>
+        <h2>What the match score measures</h2>
+        <ul className="suggestion-list">
+          <li><strong>Skill keywords (40%):</strong> skills named in the job that also appear in your resume.</li>
+          <li><strong>Meaning match (35%):</strong> how closely your described work relates to the job's duties, even in different words.</li>
+          <li><strong>Experience (25%):</strong> your years of work against the years the job asks for. Unrelated work counts for less.</li>
+        </ul>
+        <p className="form-hint">If one can't be measured, the others make up the score. The score is an estimate to guide your edits, not a real ATS result or a guarantee of interview selection.</p>
       </div>
     </>
   );

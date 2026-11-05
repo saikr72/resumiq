@@ -1,5 +1,6 @@
 import React from 'react';
 import { AuthUser } from '../api';
+import ScoreBreakdown from '../components/ScoreBreakdown';
 import { formatDate, matchesSearch, matchLabel, PageProps } from '../types';
 
 const RING_CIRCUMFERENCE = 308;
@@ -13,12 +14,12 @@ function greeting(): string {
 
 function scoreCopy(score: number): { title: string; body: string } {
   if (score >= 75) {
-    return { title: 'Strong keyword alignment.', body: 'Your resume covers most of the skills we found in this job description. Check that your experience shows real evidence for each one.' };
+    return { title: 'Strong alignment.', body: 'Your resume lines up well with this job description. Check that your experience shows real evidence for each requirement.' };
   }
   if (score >= 50) {
-    return { title: 'Good foundation. Room to grow.', body: 'Your resume covers many of the skills in this job description. Where you have real experience with the missing ones, make it visible.' };
+    return { title: 'Good foundation. Room to grow.', body: 'Your resume covers a good part of this job description. Where you have real experience with what is missing, make it visible.' };
   }
-  return { title: 'Significant gaps for this role.', body: 'Many skills in this job description are missing from your resume. Add the ones you genuinely have, or consider whether the role is the right fit.' };
+  return { title: 'Significant gaps for this role.', body: 'Much of this job description is missing from your resume. Add what you genuinely have, or consider whether the role is the right fit.' };
 }
 
 export default function OverviewPage({ data, search, navigate, user }: PageProps & { user: AuthUser }) {
@@ -72,13 +73,13 @@ export default function OverviewPage({ data, search, navigate, user }: PageProps
       <div className="dashboard-grid">
         <article className="panel score-panel">
           <div className="panel-heading">
-            <div><p className="overline">PERFORMANCE SNAPSHOT</p><h2>Latest keyword match</h2></div>
-            <span className="status-pill">✦ KEYWORD MATCH</span>
+            <div><p className="overline">PERFORMANCE SNAPSHOT</p><h2>Latest match score</h2></div>
+            <span className="status-pill">✦ MATCH SCORE</span>
           </div>
           {latest ? (
             <>
               <div className="score-overview">
-                <div className="score-ring" role="img" aria-label={`Keyword match ${score} out of 100`}>
+                <div className="score-ring" role="img" aria-label={`Match score ${score} out of 100`}>
                   <svg viewBox="0 0 120 120">
                     <circle className="ring-track" cx="60" cy="60" r="49" />
                     <circle className="ring-value" cx="60" cy="60" r="49" style={{ strokeDashoffset: RING_CIRCUMFERENCE * (1 - score / 100) }} />
@@ -91,12 +92,17 @@ export default function OverviewPage({ data, search, navigate, user }: PageProps
                   <button className="text-button" onClick={() => navigate('analysis')}>Analyse another resume <span>↗</span></button>
                 </div>
               </div>
-              <div className="metric-list">
-                <div className="metric">
-                  <div><span>{latest.resume_title}</span><b>{latest.matched_skills.length} of {skillTotal} skills</b></div>
-                  <div className="progress-track"><span style={{ width: `${score}%` }} /></div>
+              {latest.scoring_version >= 2 ? (
+                <ScoreBreakdown scores={{ keyword: latest.keyword_score, semantic: latest.semantic_score, experience: latest.experience_score, required_years: latest.required_years, resume_years: latest.resume_years }} />
+              ) : (
+                <div className="metric-list">
+                  <div className="metric">
+                    <div><span>{latest.resume_title}</span><b>{latest.matched_skills.length} of {skillTotal} skills</b></div>
+                    <div className="progress-track"><span style={{ width: `${score}%` }} /></div>
+                    <p className="score-note">This older analysis measured skill keywords only. Run it again for a full score.</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           ) : (
             <div className="empty-state">
@@ -158,7 +164,7 @@ export default function OverviewPage({ data, search, navigate, user }: PageProps
         <article className="panel">
           <div className="panel-heading">
             <h2>Recent job matches</h2>
-            <span className="status-pill">KEYWORD MATCHED</span>
+            <span className="status-pill">MATCH SCORE</span>
           </div>
           {visibleMatches.length > 0 ? (
             <div className="job-list">

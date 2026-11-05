@@ -15,7 +15,7 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 
 **Supabase:** it is the database only. Login is ours, and the app doesn't use the Supabase client or Data API. Tables are protected from that public API by Row Level Security with no policies, plus revoked `anon` and `authenticated` access. Every new table must enable RLS. The backend connects as the table owner, so it is unaffected.
 
-**Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
+**Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/score`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
 **Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (defaults to on when `NODE_ENV=production`), `NODE_ENV`, `TRUST_PROXY` (number of proxies in front of the API), and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. `DATABASE_SSL=true` encrypts the database connection, and `DATABASE_CA_CERT` also verifies the server. Docker Compose requires `DATABASE_URL` (plus `POSTGRES_PASSWORD` for the local container), and takes `VITE_API_URL` (build time) and `API_ORIGIN` (allowed by the frontend's Content Security Policy in `frontend/nginx.conf.template`). Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
 
@@ -40,7 +40,7 @@ cd service-python && .venv/bin/python -m unittest discover -s tests
 
 Dev servers: `npm run dev` in `backend-node/` and `frontend/`, and `.venv/bin/python -m uvicorn app.main:app --port 8000` in `service-python/`. To rebuild the venv, use the Python version from `service-python/Dockerfile`: `uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r requirements.txt`.
 
-The only automated tests cover skill matching in `service-python/tests/`. The backend and frontend have none, and no linter is configured. Report what was actually run rather than implying coverage.
+The only automated tests cover skill matching and match scoring in `service-python/tests/`. The backend and frontend have none, and no linter is configured. Report what was actually run rather than implying coverage.
 
 ### Working on this repo
 
@@ -61,7 +61,7 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
 - The Resume Builder has no backend: it holds a brief in the browser and says so. "Explore Pro" is a placeholder.
-- Scores are skill keyword matches only. The UI must not present them as ATS, semantic, or experience scores, and must not show sample data from `htmls/`.
+- Match scores are estimates. The UI must not present them as real ATS results, and must not show sample data from `htmls/`.
 
 **Backend**
 - `POST /api/applications/:id/interviews` ignores the `status` sent by the form, so new rounds are always `SCHEDULED`.
@@ -75,11 +75,13 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - There is no data-retention policy: resumes are kept until the user deletes them or their account.
 - Uploads are held in memory while processed (10 MB per file). The `file_path` saved to the DB is a placeholder; the file is never stored.
 - When `src/llm.ts` fails, it returns `{ error }` and the upload still returns 201.
-- `semantic_score` and `experience_score` are saved as `0`, and `overall_match_score` is just the keyword score.
+- Analyses with `scoring_version` 1 stored only a keyword score, with `0` as a placeholder for `semantic_score` and `experience_score`. The API returns those two as `null` for these rows, so they must never be displayed as measured.
 
 **Python service**
 - Skill matching can still misfire on everyday words: `Express` matches "express interest", and a capitalized `Go` matches sentences like "Go live".
-- `spacy` and `scikit-learn` are pinned but unused. `sentence-transformers` and all embedding work from the plan don't exist yet.
+- `spacy` and `scikit-learn` are pinned but unused. The `embedding` columns are unused too: scoring compares texts directly with `fastembed` (384 dimensions) and stores no vectors.
+- The semantic scale in `app/nlp/semantic.py` was set from about ten made-up resume and job pairs, not real data, so scores can be too high or low on real documents. A strong match can reach 100.
+- Experience scoring reads date ranges and phrases such as `5+ years of experience` with regular expressions, so unusual formats are missed and show as not available. It doesn't check which field the years were in, apart from discounting them when the semantic score is low.
 
 ## Rules
 

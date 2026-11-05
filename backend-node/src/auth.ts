@@ -531,7 +531,10 @@ authRouter.get('/account/export', requireAuth, async (req, res) => {
       ),
       jobDescriptions: await all('SELECT id, job_title, raw_text, created_at FROM job_descriptions WHERE user_id = $1 ORDER BY created_at'),
       analyses: await all(
-        `SELECT a.id, a.resume_id, a.job_id, a.overall_match_score, a.matched_skills, a.missing_skills, a.improvement_suggestions, a.created_at
+        `SELECT a.id, a.resume_id, a.job_id, a.overall_match_score, a.keyword_score,
+                CASE WHEN a.scoring_version >= 2 THEN a.semantic_score END AS semantic_score,
+                CASE WHEN a.scoring_version >= 2 THEN a.experience_score END AS experience_score,
+                a.required_years, a.resume_years, a.matched_skills, a.missing_skills, a.improvement_suggestions, a.created_at
          FROM resume_analyses a JOIN resumes r ON r.id = a.resume_id WHERE r.user_id = $1 ORDER BY a.created_at`
       ),
       applications: await all('SELECT * FROM applications WHERE user_id = $1 ORDER BY created_at'),

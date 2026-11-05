@@ -57,3 +57,4 @@
 .brand-logo{display:block;width:100%;max-width:190px;filter:brightness(1.6)}
 h1 .brand-logo{max-width:270px}
 .brand-icon{width:40px;flex-shrink:0}
+.score-note{font-size:9px;color:#8797af;line-height:1.5;margin:6px 0 0}

@@ -105,8 +105,8 @@ export default function AnalysisPage({ refresh, toast }: PageProps) {
 
       <div className="stats-grid analysis-stats">
         <article className="stat-card">
-          <div className="stat-top"><span>Keyword match</span><span className="stat-icon purple">◈</span></div>
-          <strong className="stat-value">{comparison ? `${Math.round(comparison.match_percentage)}%` : '—'}</strong>
+          <div className="stat-top"><span>Match score</span><span className="stat-icon purple">◈</span></div>
+          <strong className="stat-value">{result?.scores ? <>{Math.round(result.scores.overall)}<span>/100</span></> : '—'}</strong>
           <p className="neutral">Against this job description</p>
         </article>
         <article className="stat-card">
@@ -125,7 +125,7 @@ export default function AnalysisPage({ refresh, toast }: PageProps) {
           <p className="neutral">In your resume</p>
         </article>
       </div>
-      <p className="disclaimer">Scores compare skill keywords only. They are not a real ATS result or a guarantee of interview selection.</p>
+      <p className="disclaimer">Scores are estimates based on skill keywords, the meaning of your work, and your years of experience. They are not a real ATS result or a guarantee of interview selection.</p>
     </>
   );
 }

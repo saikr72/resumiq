@@ -22,7 +22,7 @@ export async function generateResumeSuggestions(resumeText: string, jobDescripti
     2. Identify critical missing keywords and skills.
     3. Provide 3-5 specific, actionable suggestions to improve the resume for this specific role.
     4. Rewrite 2 existing bullet points from the resume to better align with the job description using the Action-Context-Result formula. Use only facts stated in the resume. Do not add tools, numbers, responsibilities, or outcomes the resume doesn't state, because the candidate may submit these rewrites as written.
-    5. Describe the match in words only. Do not give a percentage or numeric score, because the app calculates its own keyword score and the two could be confused.
+    5. Describe the match in words only. Do not give a percentage or numeric score, because the app calculates its own match score and the two could be confused.
     6. In "notes", tell the candidate anything they should confirm or add before using these suggestions. Use an empty string if there is nothing to add.
 
     FORMAT:

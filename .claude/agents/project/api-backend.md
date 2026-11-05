@@ -20,7 +20,7 @@ You own `backend-node/`, the API gateway between the React frontend, the Python 
 - Resume text and job descriptions are user-supplied personal data. Do not log them, and treat them as untrusted input in LLM prompts.
 
 ## Boundaries
-- Changing the JSON from `/api/*` affects `frontend/src/pages/` and `frontend/src/types.ts`. Changing how you call `/parse` or `/compare-keywords` affects `service-python/app/main.py`. Report any contract change to the lead so the other side is updated.
+- Changing the JSON from `/api/*` affects `frontend/src/pages/` and `frontend/src/types.ts`. Changing how you call `/parse` or `/score` affects `service-python/app/main.py`. Report any contract change to the lead so the other side is updated.
 - If you need a schema change, ask `database-schema` for it. Do not edit `database/`.
 
 ## Verify before reporting done

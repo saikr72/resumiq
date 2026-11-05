@@ -79,9 +79,12 @@ CREATE TABLE IF NOT EXISTS resume_analyses (
     resume_id UUID REFERENCES resumes(id) ON DELETE CASCADE,
     job_id UUID REFERENCES job_descriptions(id) ON DELETE CASCADE,
     overall_match_score NUMERIC(5, 2) NOT NULL,
-    keyword_score NUMERIC(5, 2) NOT NULL,
-    semantic_score NUMERIC(5, 2) NOT NULL,
-    experience_score NUMERIC(5, 2) NOT NULL,
+    keyword_score NUMERIC(5, 2), -- NULL when a score could not be measured
+    semantic_score NUMERIC(5, 2),
+    experience_score NUMERIC(5, 2),
+    required_years NUMERIC(4, 1),
+    resume_years NUMERIC(4, 1),
+    scoring_version SMALLINT NOT NULL DEFAULT 1, -- 1 stored only keyword scores, with 0 as a placeholder for the others
     matched_skills JSONB,
     missing_skills JSONB,
     ats_formatting_issues JSONB,

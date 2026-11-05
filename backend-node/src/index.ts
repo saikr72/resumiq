@@ -105,10 +105,10 @@ function validateJobDescription(value: unknown, required: boolean): string | nul
 // Compares a resume with a job description and saves the result
 async function analyzeResume(userId: string, resumeId: string, rawText: string, jobTitle: unknown, jobDescription: string) {
   const [compareRes, aiSuggestions] = await Promise.all([
-    axios.post(`${PYTHON_SERVICE_URL}/compare-keywords`, { resume_text: rawText, job_text: jobDescription }),
+    axios.post(`${PYTHON_SERVICE_URL}/score`, { resume_text: rawText, job_text: jobDescription }),
     generateResumeSuggestions(rawText, jobDescription),
   ]);
-  const comparison = compareRes.data.comparison;
+  const { comparison, scores } = compareRes.data;
 
   const title = typeof jobTitle === 'string' && jobTitle.trim() ? jobTitle.trim().slice(0, 150) : 'Untitled role';
   const jobRes = await query(
@@ -117,13 +117,16 @@ async function analyzeResume(userId: string, resumeId: string, rawText: string, 
   );
 
   await query(
-    'INSERT INTO resume_analyses (resume_id, job_id, overall_match_score, keyword_score, semantic_score, experience_score, matched_skills, missing_skills, improvement_suggestions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+    'INSERT INTO resume_analyses (resume_id, job_id, overall_match_score, keyword_score, semantic_score, experience_score, required_years, resume_years, scoring_version, matched_skills, missing_skills, improvement_suggestions) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 2, $9, $10, $11)',
     [
       resumeId,
       jobRes.rows[0].id,
-      comparison.match_percentage,
-      comparison.match_percentage,
-      0, 0, // Placeholder for semantic/experience
+      scores.overall,
+      scores.keyword,
+      scores.semantic,
+      scores.experience,
+      scores.required_years,
+      scores.resume_years,
       JSON.stringify(comparison.matched_skills),
       JSON.stringify(comparison.missing_skills),
       // A failed LLM call is not a suggestion, so leave the column empty
@@ -131,7 +134,12 @@ async function analyzeResume(userId: string, resumeId: string, rawText: string, 
     ]
   );
 
-  return { comparison, aiSuggestions };
+  return { comparison, scores, aiSuggestions };
+}
+
+// Postgres returns NUMERIC columns as strings
+function toNumberOrNull(value: string | null): number | null {
+  return value === null ? null : Number(value);
 }
 
 // GET /api/resumes - List the user's resumes with their latest match score
@@ -208,6 +216,11 @@ app.get('/api/analyses', async (req, res) => {
   try {
     const result = await query(
       `SELECT ra.id, ra.resume_id, r.title AS resume_title, jd.job_title, ra.overall_match_score,
+              ra.keyword_score, ra.scoring_version,
+              -- Version 1 analyses stored 0 here as a placeholder, not as a measured score
+              CASE WHEN ra.scoring_version >= 2 THEN ra.semantic_score END AS semantic_score,
+              CASE WHEN ra.scoring_version >= 2 THEN ra.experience_score END AS experience_score,
+              ra.required_years, ra.resume_years,
               ra.matched_skills, ra.missing_skills, ra.improvement_suggestions, ra.created_at
        FROM resume_analyses ra
        JOIN resumes r ON r.id = ra.resume_id
@@ -217,7 +230,15 @@ app.get('/api/analyses', async (req, res) => {
        LIMIT 50`,
       [req.user!.id]
     );
-    res.json(result.rows.map((row) => ({ ...row, overall_match_score: Number(row.overall_match_score) })));
+    res.json(result.rows.map((row) => ({
+      ...row,
+      overall_match_score: Number(row.overall_match_score),
+      keyword_score: toNumberOrNull(row.keyword_score),
+      semantic_score: toNumberOrNull(row.semantic_score),
+      experience_score: toNumberOrNull(row.experience_score),
+      required_years: toNumberOrNull(row.required_years),
+      resume_years: toNumberOrNull(row.resume_years),
+    })));
   } catch (error: any) {
     console.error('Get Analyses Error:', error.message);
     res.status(500).json({ error: 'Failed to fetch analyses' });
@@ -277,10 +298,11 @@ app.post('/api/resumes/upload', analysisLimiter, receiveResume, async (req, res)
 
     // 4. If a job description was provided, compare it and get LLM suggestions
     let comparison = null;
+    let scores = null;
     let aiSuggestions = null;
 
     if (jobDescription) {
-      ({ comparison, aiSuggestions } = await analyzeResume(userId, resumeId, parsedData.raw_text, jobTitle, jobDescription));
+      ({ comparison, scores, aiSuggestions } = await analyzeResume(userId, resumeId, parsedData.raw_text, jobTitle, jobDescription));
     }
 
     res.status(201).json({
@@ -288,6 +310,7 @@ app.post('/api/resumes/upload', analysisLimiter, receiveResume, async (req, res)
       resumeId,
       parsedSkills: parsedData.extracted_skills,
       comparison,
+      scores,
       aiSuggestions
     });
 

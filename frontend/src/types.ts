@@ -47,10 +47,27 @@ export interface AnalysisSummary {
   resume_title: string;
   job_title: string | null;
   overall_match_score: number;
+  keyword_score: number | null;
+  semantic_score: number | null;
+  experience_score: number | null;
+  required_years: number | null;
+  resume_years: number | null;
+  // Version 1 analyses measured skill keywords only
+  scoring_version: number;
   matched_skills: string[];
   missing_skills: string[];
   improvement_suggestions: AiSuggestions | null;
   created_at: string;
+}
+
+// A null score couldn't be measured, and doesn't count towards the overall score
+export interface MatchScores {
+  overall: number;
+  keyword: number | null;
+  semantic: number | null;
+  experience: number | null;
+  required_years: number | null;
+  resume_years: number | null;
 }
 
 export interface Comparison {
@@ -61,6 +78,7 @@ export interface Comparison {
 
 export interface AnalysisResult {
   comparison: Comparison | null;
+  scores: MatchScores | null;
   aiSuggestions: AiSuggestions | null;
   parsedSkills?: Record<string, string[]>;
 }

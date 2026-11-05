@@ -1,5 +1,6 @@
 import React from 'react';
 import { AnalysisResult } from '../types';
+import ScoreBreakdown from './ScoreBreakdown';
 
 function Chips({ items, tone }: { items: string[]; tone?: 'good' | 'gap' | 'warn' }) {
   return (
@@ -12,14 +13,19 @@ function Chips({ items, tone }: { items: string[]; tone?: 'good' | 'gap' | 'warn
 }
 
 export default function AnalysisOutput({ result }: { result: AnalysisResult }) {
-  const { comparison, aiSuggestions, parsedSkills } = result;
+  const { comparison, scores, aiSuggestions, parsedSkills } = result;
   const detected = Object.values(parsedSkills ?? {}).flat();
 
   return (
     <div className="output-box" aria-live="polite">
       {comparison ? (
         <>
-          <h3>Keyword match: {comparison.match_percentage}%</h3>
+          {scores && (
+            <>
+              <h3>Match score: {Math.round(scores.overall)}/100</h3>
+              <ScoreBreakdown scores={scores} />
+            </>
+          )}
           {comparison.matched_skills.length > 0 && (
             <>
               <h3>Matched skills</h3>
@@ -43,7 +49,7 @@ export default function AnalysisOutput({ result }: { result: AnalysisResult }) {
 
       {aiSuggestions?.error && (
         <div className="notice" role="alert" style={{ marginTop: 14, marginBottom: 0 }}>
-          <span>AI suggestions couldn't be generated for this analysis. The keyword match above is still valid. Please try again later.</span>
+          <span>AI suggestions couldn't be generated for this analysis. The scores above are still valid. Please try again later.</span>
         </div>
       )}
 
