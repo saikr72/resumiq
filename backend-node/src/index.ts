@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import multer from 'multer';
 import axios from 'axios';
 import rateLimit from 'express-rate-limit';
+import { requireProxySecret } from './proxy';
 import FormData from 'form-data';
 import helmet from 'helmet';
 import { authRouter, requireAuth, requireVerifiedEmail } from './auth';
@@ -21,6 +22,8 @@ const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8
 if (process.env.TRUST_PROXY) {
   app.set('trust proxy', Number(process.env.TRUST_PROXY));
 }
+
+app.use(requireProxySecret);
 
 // The frontend is on another origin, so it must be allowed to read API responses
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));

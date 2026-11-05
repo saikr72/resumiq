@@ -55,3 +55,7 @@ Thumbs.db
 .claude-flow/console/
 .claude-flow/security/
 .claude/settings.local.json
+
+# Cloudflare local development
+.wrangler/
+.dev.vars*

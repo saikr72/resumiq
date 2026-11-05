@@ -5,6 +5,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { PoolClient } from 'pg';
 import pool, { query } from './db';
 import { sendPasswordResetEmail, sendVerificationEmail } from './email';
+import { rateLimitKey } from './proxy';
 
 export interface AuthUser {
   id: string;
@@ -183,6 +184,7 @@ const signInLimiter = rateLimit({
   skipSuccessfulRequests: true,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
   message: limitMessage,
 });
 
@@ -191,6 +193,7 @@ const registerLimiter = rateLimit({
   limit: 20,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
   message: limitMessage,
 });
 
@@ -199,6 +202,7 @@ const emailLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey,
   message: limitMessage,
 });
 

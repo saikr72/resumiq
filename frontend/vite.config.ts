@@ -14,7 +14,9 @@ function apiOriginInHeaders(apiUrl: string): Plugin {
     },
     closeBundle() {
       const file = path.join(outDir, '_headers');
-      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/__API_ORIGIN__/g, new URL(apiUrl).origin));
+      // A relative address such as /api is on the site itself, which the policy already allows
+      const origin = apiUrl.startsWith('/') ? '' : new URL(apiUrl).origin;
+      fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/__API_ORIGIN__/g, origin));
     },
   };
 }
