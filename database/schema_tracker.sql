@@ -118,3 +118,15 @@ CREATE TABLE IF NOT EXISTS interview_stages (
     status VARCHAR(50) DEFAULT 'SCHEDULED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Supabase publishes tables in the public schema through its Data API. The backend connects
+-- as the table owner, which bypasses RLS, so enabling it with no policies blocks API access only.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE email_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resumes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE parsed_resumes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE job_descriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resume_analyses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interview_stages ENABLE ROW LEVEL SECURITY;
