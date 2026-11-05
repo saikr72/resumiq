@@ -9,20 +9,23 @@ Analyzes resumes against job descriptions (ATS keyword match plus Claude-generat
 | `frontend/` | React 18, Vite, TypeScript | 3000 | `frontend-ui` |
 | `backend-node/` | Express, TypeScript, `pg`, Anthropic SDK | 5000 | `api-backend` |
 | `service-python/` | FastAPI, pdfplumber, python-docx | 8000 (not published by Docker) | `parsing-nlp` |
-| `database/` | PostgreSQL with pgvector (`ankane/pgvector:v0.5.1`), raw SQL | 5434 on localhost only, 5432 between containers | `database-schema` |
+| `database/` | PostgreSQL on Supabase, used as a plain database through `pg` with raw SQL. Optional local pgvector container with `COMPOSE_PROFILES=local-db` | 5434 on localhost for the local container | `database-schema` |
 
 **Frontend:** `frontend/src/App.tsx` is the workspace shell with hash routing, and each screen is in `src/pages/`. The visual design comes from `htmls/`, and `src/workspace.css` is its stylesheet plus additions at the end.
 
+**Supabase:** it is the database only. Login is ours, and the app doesn't use the Supabase client or Data API. Tables are protected from that public API by Row Level Security with no policies, plus revoked `anon` and `authenticated` access. Every new table must enable RLS. The backend connects as the table owner, so it is unaffected.
+
 **Request flow:** the browser calls `backend-node`, which sends uploads to `service-python` (`/parse`, `/compare-keywords`), calls Claude (`src/llm.ts`), and stores results in Postgres. The Python service has no database access.
 
-**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (defaults to on when `NODE_ENV=production`), `NODE_ENV`, `TRUST_PROXY` (number of proxies in front of the API), and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. Docker Compose also requires `POSTGRES_PASSWORD`, and takes `VITE_API_URL` (build time) and `API_ORIGIN` (allowed by the frontend's Content Security Policy in `frontend/nginx.conf.template`). Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
+**Environment variables (backend):** `PORT`, `DATABASE_URL`, `PYTHON_SERVICE_URL`, `ANTHROPIC_API_KEY`, `FRONTEND_ORIGIN` (default `http://localhost:3000`), `GOOGLE_CLIENT_ID` (the Google button is hidden when unset), `COOKIE_SECURE` (defaults to on when `NODE_ENV=production`), `NODE_ENV`, `TRUST_PROXY` (number of proxies in front of the API), and `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_FROM`. `DATABASE_SSL=true` encrypts the database connection, and `DATABASE_CA_CERT` also verifies the server. Docker Compose requires `DATABASE_URL` (plus `POSTGRES_PASSWORD` for the local container), and takes `VITE_API_URL` (build time) and `API_ORIGIN` (allowed by the frontend's Content Security Policy in `frontend/nginx.conf.template`). Without `SMTP_HOST`, email links are printed to the backend log, unless `NODE_ENV=production`, when they are not sent or logged. Under Docker, `backend-node/.env` is not used: Compose takes these from the shell or a root `.env` file, and without `ANTHROPIC_API_KEY` AI suggestions fail.
 
 **Authentication:** `backend-node/src/auth.ts` handles email/password and Google sign-in. Sessions are random tokens in an `httpOnly` cookie, stored hashed in the `sessions` table. Every `/api` route except `/api/health` and `/api/auth/*` requires a session and a verified email, and each route must scope its queries to `req.user.id`. Verification and reset links (`src/email.ts`) are single-use, stored hashed in `email_tokens`, and carry the token in the URL fragment. Linking Google to an unverified password account removes the password and ends that account's sessions, because its owner hasn't proved control of the email; a verified account keeps both.
 
 ### Commands
 
 ```bash
-docker compose up --build   # Full stack; the frontend is at http://localhost:3000. Needs POSTGRES_PASSWORD set, and host ports 3000, 5000, and 5434 free
+docker compose --env-file .env.local up --build   # Full stack using the database in DATABASE_URL; the frontend is at http://localhost:3000
+cd backend-node && npm run db:setup   # Applies the schema and all migrations to DATABASE_URL; safe to repeat
 
 # Typecheck and build
 cd backend-node && npm run build
