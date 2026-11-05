@@ -58,7 +58,6 @@ Verified against the code. Do not fix these as a side effect of other work; fix 
 - `backend-node/start`, `stop`, and `query` are stray one-line files containing only `postgresql-x64-17`.
 
 **Frontend**
-- `index.html` links `/vite.svg`, which does not exist, so the favicon returns 404 under nginx.
 - Application statuses (`SAVED`, `APPLIED`, `SCREENING`, `INTERVIEWING`, `OFFER`, `REJECTED`) are defined only in the frontend, with no database constraint, and the API accepts any value.
 - Scheduling an interview closes the modal, so the new round is not shown until it is reopened. Displayed interview dates omit the year.
 - The Resume Builder has no backend: it holds a brief in the browser and says so. "Explore Pro" is a placeholder.

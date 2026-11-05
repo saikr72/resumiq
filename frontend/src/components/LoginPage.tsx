@@ -144,14 +144,11 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
   return (
     <main className="min-h-screen bg-[#090d18] text-[#eef3ff] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#111a29] border border-[#263248] rounded-[11px] p-6 sm:p-8 space-y-6 shadow-2xl">
-        <div className="flex items-center space-x-3">
-          <span className="brand-mark">R</span>
-          <div>
-            <h1 className="text-lg font-bold text-white" style={{ fontFamily: 'var(--display)' }}>resum<span className="brand-accent">IQ</span></h1>
-            <p className="text-xs text-slate-400">
-              {mode === 'signin' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
-            </p>
-          </div>
+        <div>
+          <h1><img className="brand-logo" src="/logo-riq.jpg" alt="resumIQ" width={501} height={161} /></h1>
+          <p className="text-xs text-slate-400 mt-3">
+            {mode === 'signin' ? 'Sign in to your account' : mode === 'register' ? 'Create your account' : 'Reset your password'}
+          </p>
         </div>
 
         {success && showIncomingMessage && (

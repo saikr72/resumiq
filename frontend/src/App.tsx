@@ -130,8 +130,7 @@ export default function App({ user, onLogout, onAccountDeleted }: AppProps) {
       <div className={`nav-backdrop ${menuOpen ? 'open' : ''}`} onClick={() => setMenuOpen(false)} />
       <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
         <a className="brand" href="#dashboard" aria-label="resumIQ home">
-          <span className="brand-mark">R</span>
-          <span>resum<span className="brand-accent">IQ</span></span>
+          <img className="brand-logo" src="/logo-riq.jpg" alt="" width={501} height={161} />
         </a>
         {NAV_GROUPS.map((group) => (
           <div className="nav-group" key={group.label}>

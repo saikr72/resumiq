@@ -50,7 +50,7 @@ export default function ResetPasswordPage({ token, onDone }: ResetPasswordPagePr
     <main className="min-h-screen bg-[#090d18] text-[#eef3ff] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-[#111a29] border border-[#263248] rounded-[11px] p-6 sm:p-8 space-y-6 shadow-2xl">
         <div className="flex items-center space-x-3">
-          <span className="brand-mark">R</span>
+          <img className="brand-icon" src="/favicon-riq.jpg" alt="" width={173} height={170} />
           <h1 className="text-lg font-bold text-white">Choose a new password</h1>
         </div>
 

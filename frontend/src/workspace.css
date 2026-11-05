@@ -52,3 +52,8 @@
 .upload-zone.dragging{border-color:#a08cff;background:#1b1c34}
 .toast.error{border-color:#6e3442;background:#3a1f2a}
 @media(max-width:700px){.nav-backdrop.open{display:block;position:fixed;inset:0;z-index:15;background:#0007}.job-row{flex-wrap:wrap}.field-grid{grid-template-columns:1fr}}
+/* The logo files have a black background, which the blend hides on these dark panels */
+.brand-logo,.brand-icon{mix-blend-mode:screen;height:auto}
+.brand-logo{display:block;width:100%;max-width:190px;filter:brightness(1.6)}
+h1 .brand-logo{max-width:270px}
+.brand-icon{width:40px;flex-shrink:0}
