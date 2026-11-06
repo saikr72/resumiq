@@ -168,7 +168,8 @@ export default function LoginPage({ notice, success, onSignedIn }: LoginPageProp
         {/* Hidden rather than removed, so Google's button doesn't need rendering again */}
         {googleClientId && (
           <div className={mode === 'forgot' ? 'hidden' : 'space-y-6'}>
-            <div ref={googleButtonRef} className="flex justify-center min-h-[44px]" />
+            {/* Google's iframe page is light, and a dark color-scheme here would paint it an opaque white background */}
+            <div ref={googleButtonRef} className="flex justify-center min-h-[44px]" style={{ colorScheme: 'light' }} />
             <div className="flex items-center space-x-3 text-xs text-slate-500">
               <div className="flex-1 border-t border-slate-800" />
               <span>or</span>
