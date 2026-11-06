@@ -15,7 +15,10 @@ import { generateResumeSuggestions } from './llm';
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8000';
+const pythonService = axios.create({
+  baseURL: process.env.PYTHON_SERVICE_URL || 'http://localhost:8000',
+  headers: process.env.SERVICE_SECRET ? { 'X-Service-Secret': process.env.SERVICE_SECRET } : {},
+});
 
 // Credentialed requests need an exact origin, never a wildcard
 // Set to the number of proxies in front of the API, so rate limits see real client addresses
@@ -108,7 +111,7 @@ function validateJobDescription(value: unknown, required: boolean): string | nul
 // Compares a resume with a job description and saves the result
 async function analyzeResume(userId: string, resumeId: string, rawText: string, jobTitle: unknown, jobDescription: string) {
   const [compareRes, aiSuggestions] = await Promise.all([
-    axios.post(`${PYTHON_SERVICE_URL}/score`, { resume_text: rawText, job_text: jobDescription }),
+    pythonService.post('/score', { resume_text: rawText, job_text: jobDescription }),
     generateResumeSuggestions(rawText, jobDescription),
   ]);
   const { comparison, scores } = compareRes.data;
@@ -269,10 +272,11 @@ app.post('/api/resumes/upload', analysisLimiter, receiveResume, async (req, res)
     const formData = new FormData();
     formData.append('file', req.file.buffer, req.file.originalname);
 
-    const pythonRes = await axios.post(`${PYTHON_SERVICE_URL}/parse`, formData, {
+    const pythonRes = await pythonService.post('/parse', formData, {
       headers: formData.getHeaders(),
-      // Lets an unreadable file be reported to the user below, rather than as a server failure
-      validateStatus: (status) => status < 500,
+      // Lets an unreadable file be reported to the user below, rather than as a server failure.
+      // A 403 means SERVICE_SECRET is wrong, which isn't a problem with the file.
+      validateStatus: (status) => status < 500 && status !== 403,
     });
     if (pythonRes.status !== 200) {
       return res.status(400).json({ error: pythonRes.data?.detail || 'We could not read this file' });

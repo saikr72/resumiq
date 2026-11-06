@@ -34,7 +34,8 @@ def _get_model():
         if _model is None:
             from fastembed import TextEmbedding
 
-            _model = TextEmbedding(model_name=MODEL_NAME)
+            # One thread, because a thread per core competes badly for a small CPU share
+            _model = TextEmbedding(model_name=MODEL_NAME, threads=1)
     return _model
 
 

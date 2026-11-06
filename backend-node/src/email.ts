@@ -4,8 +4,35 @@ function frontendOrigin(): string {
   return process.env.FRONTEND_ORIGIN || 'http://localhost:3000';
 }
 
+// Render's free services can't use SMTP ports, so email can go through Brevo's web API instead
+async function sendWithBrevo(apiKey: string, to: string, subject: string, html: string) {
+  const match = process.env.EMAIL_FROM?.match(/^\s*(.*?)\s*<(.+)>\s*$/);
+  const sender = match
+    ? { name: match[1] || 'resumIQ', email: match[2] }
+    : { name: 'resumIQ', email: process.env.EMAIL_FROM };
+  if (!sender.email) {
+    throw new Error('EMAIL_FROM is not configured');
+  }
+
+  const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+    method: 'POST',
+    headers: { 'api-key': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sender, to: [{ email: to }], subject, htmlContent: html }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    // The status is enough to diagnose this, and the body could repeat the address
+    throw new Error(`Brevo returned status ${response.status}`);
+  }
+}
+
 async function sendEmail(to: string, subject: string, intro: string, action: string, link: string, footer: string) {
-  const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, EMAIL_FROM, NODE_ENV } = process.env;
+  const { BREVO_API_KEY, SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, EMAIL_FROM, NODE_ENV } = process.env;
+
+  if (BREVO_API_KEY) {
+    await sendWithBrevo(BREVO_API_KEY, to, subject, `<p>${intro}</p><p><a href="${link}">${action}</a></p><p>${footer}</p>`);
+    return;
+  }
 
   if (!SMTP_HOST) {
     // Links are credentials, so they may only ever be logged during local development

@@ -46,6 +46,8 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      SERVICE_SECRET: ${SERVICE_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,6 +63,7 @@ services:
     expose:
       - "8000"
     environment:
+      SERVICE_SECRET: ${SERVICE_SECRET:-}
       PORT: 8000
 
   frontend:

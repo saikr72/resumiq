@@ -1,6 +1,8 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
+import hmac
 import os
 import threading
 
@@ -11,6 +13,16 @@ from app.nlp.semantic import preload_model
 from app.nlp.skill_extractor import extract_skills, compare_keywords
 
 app = FastAPI(title="Resume Intelligence NLP & Parsing Microservice", version="1.0.0")
+
+# Set SERVICE_SECRET whenever this service has a public address. Only the health check stays open.
+@app.middleware("http")
+async def require_service_secret(request: Request, call_next):
+    secret = os.environ.get("SERVICE_SECRET")
+    if secret and request.url.path != "/":
+        sent = request.headers.get("x-service-secret", "")
+        if not hmac.compare_digest(sent.encode(), secret.encode()):
+            return JSONResponse({"detail": "Forbidden"}, status_code=403)
+    return await call_next(request)
 
 @app.on_event("startup")
 def load_model_in_background():
